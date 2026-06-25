@@ -67,8 +67,8 @@
     <div class="flex items-center gap-3 mb-3">
       <span class="text-2xl">📂</span>
       <div>
-        <h2 class="text-xl font-bold text-[#1a1a1a]">导入 8760 时序数据 <span class="badge-estimate">推荐</span></h2>
-        <p class="text-sm text-[#86868b]">上传电源+负荷逐时匹配表（.xlsx），系统自动计算两个关键比例</p>
+        <h2 class="text-xl font-bold text-[#1a1a1a]">导入 8760 时序数据 <span class="badge-estimate">推荐</span> <span style="font-size:12px;font-weight:400;color:#a1a1a6">（可选）</span></h2>
+        <p class="text-sm text-[#86868b]">上传电源+负荷逐时匹配表（.xlsx），系统自动计算两个关键比例。未上传则使用典型日估算</p>
       </div>
     </div>
     <label class="upload-zone" id="uploadZone" for="fileInput">
@@ -80,6 +80,9 @@
     <div id="importResult" style="display:none;margin-top:12px"></div>
     <div class="text-center mt-3" id="applyBtnWrap" style="display:none">
       <button class="bg-[#007AFF] text-white border-none rounded-xl px-6 py-2 text-sm font-semibold cursor-pointer" onclick="applyImport()">✅ 填入参数并计算</button>
+    </div>
+    <div class="text-center mt-2" id="skipUploadNote">
+      <span class="text-xs text-[#c7c7cc]">或直接填写下方参数开始计算 ↑</span>
     </div>
   </div>
 
@@ -408,6 +411,7 @@ function parse8760(rows) {
     '<div class="text-xs text-[#a1a1a6] mt-2">日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 峰值出力 ' + fmt(maxGenVal) + ' kW</div>';
 
   document.getElementById('applyBtnWrap').style.display = 'block';
+  document.getElementById('skipUploadNote').style.display = 'none';
 }
 
 function applyImport() {
@@ -521,7 +525,7 @@ function doCalc() {
   document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
 
   // Import note
-  document.getElementById('importNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 来自8760导入</span>' : '';
+  document.getElementById('importNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 来自8760导入</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">📐 系统估算</span>';
 
   // Pre-condition
   if (dailyGen <= 0) {

@@ -119,9 +119,9 @@
         <div class="md:col-span-2 lg:col-span-3">
           <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">☀️</span><span class="text-sm font-bold text-[#1a1a1a]" style="color:#e65100">光伏参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
         </div>
-        <div class="param-card"><div class="input-group"><label>☀️ 光伏日发电量</label><input type="number" id="dailyGen" class="input-field" value="440000" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🔆 光伏午间峰值出力</label><input type="number" id="peakGen" class="input-field" value="25000" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌙 缺口时段电源出力</label><input type="number" id="genDuringGap" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW（光伏晚高峰为 0）</div></div></div>
+        <div class="param-card"><div class="input-group"><label>☀️ 光伏日发电量</label><input type="number" id="pvDailyGen" class="input-field" value="440000" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🔆 光伏午间峰值出力</label><input type="number" id="pvPeakGen" class="input-field" value="25000" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🌙 缺口时段电源出力</label><input type="number" id="pvGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW（光伏晚高峰为 0）</div></div></div>
       </div>
 
       <!-- 风电参数 -->
@@ -129,9 +129,9 @@
         <div class="md:col-span-2 lg:col-span-3">
           <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">💨</span><span class="text-sm font-bold text-[#1a1a1a]" style="color:#1565c0">风电参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
         </div>
-        <div class="param-card"><div class="input-group"><label>💨 风电日发电量</label><input type="number" id="dailyGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌬 风电峰值出力</label><input type="number" id="peakGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌙 缺口时段电源出力</label><input type="number" id="genDuringGap" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW（风电夜间可能仍有出力）</div></div></div>
+        <div class="param-card"><div class="input-group"><label>💨 风电日发电量</label><input type="number" id="windDailyGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🌬 风电峰值出力</label><input type="number" id="windPeakGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🌙 缺口时段电源出力</label><input type="number" id="windGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW（风电夜间可能仍有出力）</div></div></div>
       </div>
 
       <!-- 目标与电价（通用） -->
@@ -414,11 +414,17 @@ function applyImport() {
   if (!importData) return;
   switchSource(importData.sourceType);
   document.getElementById('dailyLoad').value = Math.round(importData.dailyLoad);
-  document.getElementById('dailyGen').value = Math.round(importData.dailyGen);
   document.getElementById('maxLoad').value = Math.round(importData.maxLoad);
-  document.getElementById('peakGen').value = Math.round(importData.peakGen);
-  document.getElementById('genDuringGap').value = Math.round(importData.genDuringGap);
   document.getElementById('gapHours').value = importData.gapHours;
+  if (importData.sourceType === 'pv') {
+    document.getElementById('pvDailyGen').value = Math.round(importData.dailyGen);
+    document.getElementById('pvPeakGen').value = Math.round(importData.peakGen);
+    document.getElementById('pvGapGen').value = Math.round(importData.genDuringGap);
+  } else {
+    document.getElementById('windDailyGen').value = Math.round(importData.dailyGen);
+    document.getElementById('windPeakGen').value = Math.round(importData.peakGen);
+    document.getElementById('windGapGen').value = Math.round(importData.genDuringGap);
+  }
   window._fromImport = true;
   window._importSelfGen = importData.selfGenRatio;
   window._importSelfLoad = importData.selfLoadRatio;
@@ -430,9 +436,16 @@ function doCalc() {
   var maxLoad = parseFloat(document.getElementById('maxLoad').value) || 0;
   var dailyLoad = parseFloat(document.getElementById('dailyLoad').value) || 0;
   var gapHours = parseFloat(document.getElementById('gapHours').value) || 4;
-  var dailyGen = parseFloat(document.getElementById('dailyGen').value) || 0;
-  var peakGen = parseFloat(document.getElementById('peakGen').value) || 0;
-  var genDuringGap = parseFloat(document.getElementById('genDuringGap').value) || 0;
+  var dailyGen, peakGen, genDuringGap;
+  if (currentSource === 'pv') {
+    dailyGen = parseFloat(document.getElementById('pvDailyGen').value) || 0;
+    peakGen = parseFloat(document.getElementById('pvPeakGen').value) || 0;
+    genDuringGap = parseFloat(document.getElementById('pvGapGen').value) || 0;
+  } else {
+    dailyGen = parseFloat(document.getElementById('windDailyGen').value) || 0;
+    peakGen = parseFloat(document.getElementById('windPeakGen').value) || 0;
+    genDuringGap = parseFloat(document.getElementById('windGapGen').value) || 0;
+  }
   var targetRatio = parseFloat(document.getElementById('targetRatio').value) || 90;
   var targetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
   var gridCoverage = (parseFloat(document.getElementById('gridCoverage').value) || 0) / 100;

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新能源计算工具箱</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { font-family: 'Inter', 'PingFang SC', 'Helvetica Neue', sans-serif; }
+  body { background: #f5f5f7; }
+  .tool-card { background: #fff; border-radius: 20px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; text-decoration: none; display: block; }
+  .tool-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+  .tool-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+  .badge-live { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 12px; }
+  .badge-new { display: inline-block; background: #e3f2fd; color: #1565c0; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 12px; }
+  .badge-soon { display: inline-block; background: #f5f5f7; color: #86868b; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 12px; }
+</style>
+</head>
+<body>
+
+<div class="max-w-4xl mx-auto px-4 py-10 md:py-16">
+
+  <!-- Header -->
+  <div class="text-center mb-12">
+    <div class="text-6xl mb-4">⚡</div>
+    <h1 class="text-4xl md:text-5xl font-extrabold text-[#1a1a1a] tracking-tight">新能源计算工具箱</h1>
+    <p class="text-lg text-[#86868b] mt-3 font-medium">政策研究 · 工程计算 · 一键出结果</p>
+  </div>
+
+  <!-- Tools Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
+
+    <!-- Tool 1: Green Power Calculator -->
+    <a href="https://pompomdonotlike008-dev.github.io/green-power-calculator" target="_blank" class="tool-card">
+      <span class="tool-icon">🧮</span>
+      <div class="flex items-center gap-2 mb-2">
+        <h2 class="text-xl font-bold text-[#1a1a1a]">绿电直连电费计算器</h2>
+        <span class="badge-live">已上线</span>
+      </div>
+      <p class="text-sm text-[#86868b] leading-relaxed">三部制对比（传统两部制 / 绿电两部制 / 绿电容量制），基于1192号文完整电费模型。含付费授权系统。</p>
+      <div class="flex items-center gap-2 mt-3 text-xs text-[#a1a1a6]">
+        <span>🔗 外部链接</span>
+        <span>·</span>
+        <span>有人付费使用</span>
+      </div>
+    </a>
+
+    <!-- Tool 2: Storage Calculator -->
+    <a href="tools/storage/index.html" class="tool-card">
+      <span class="tool-icon">🔋</span>
+      <div class="flex items-center gap-2 mb-2">
+        <h2 class="text-xl font-bold text-[#1a1a1a]">储能配置倒算器</h2>
+        <span class="badge-new">新上线</span>
+      </div>
+      <p class="text-sm text-[#86868b] leading-relaxed">从自发自用比例和接网容量目标反向推算储能配置（MW/MWh），双场景经济性校验（含/不含容量压降）。</p>
+      <div class="flex items-center gap-2 mt-3 text-xs text-[#a1a1a6]">
+        <span>📐 储能倒算法</span>
+        <span>·</span>
+        <span>简化估算版</span>
+      </div>
+    </a>
+
+    <!-- Tool 3: Coming Soon - PV Benefit -->
+    <div class="tool-card" style="opacity:0.5; cursor:default;">
+      <span class="tool-icon">☀️</span>
+      <div class="flex items-center gap-2 mb-2">
+        <h2 class="text-xl font-bold text-[#1a1a1a]">光伏收益测算器</h2>
+        <span class="badge-soon">开发中</span>
+      </div>
+      <p class="text-sm text-[#86868b] leading-relaxed">输入装机容量、日照小时数、电价，一键算回本周期和IRR。支持自发自用/全额上网两种模式对比。</p>
+      <div class="flex items-center gap-2 mt-3 text-xs text-[#a1a1a6]">
+        <span>🚧 敬请期待</span>
+      </div>
+    </div>
+
+    <!-- Tool 4: Coming Soon - Distributed Capacity -->
+    <div class="tool-card" style="opacity:0.5; cursor:default;">
+      <span class="tool-icon">🏗️</span>
+      <div class="flex items-center gap-2 mb-2">
+        <h2 class="text-xl font-bold text-[#1a1a1a]">分布式承载力评估器</h2>
+        <span class="badge-soon">开发中</span>
+      </div>
+      <p class="text-sm text-[#86868b] leading-relaxed">基于DL/T 2041-2025，输入变压器容量和已有接入量，评估剩余可接入容量。含反向负载率判断。</p>
+      <div class="flex items-center gap-2 mt-3 text-xs text-[#a1a1a6]">
+        <span>🚧 敬请期待</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- About -->
+  <div class="card mx-auto" style="background:#fff;border-radius:20px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+    <h2 class="text-lg font-bold text-[#1a1a1a] mb-3">📝 关于</h2>
+    <p class="text-sm text-[#86868b] leading-relaxed">
+      本工具箱由 <b>王炸小纸条</b> 开发维护。所有工具基于实际政策文件和工程方法构建，属于个人学习研究工具，不构成投资或工作建议。
+    </p>
+    <div class="flex items-center gap-4 mt-4 text-xs text-[#a1a1a6]">
+      <a href="https://pompomdonotlike008-dev.github.io/green-power-calculator" target="_blank" class="hover:text-[#007AFF]">绿电计算器</a>
+      <a href="tools/storage/index.html" class="hover:text-[#007AFF]">储能倒算器</a>
+      <span>© 2026 王炸小纸条</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

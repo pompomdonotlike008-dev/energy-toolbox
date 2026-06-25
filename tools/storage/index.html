@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>储能配置倒算器</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { font-family: 'Inter', 'PingFang SC', 'Helvetica Neue', sans-serif; }
+  body { background: #f5f5f7; }
+  .card { background: #fff; border-radius: 20px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .param-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; transition: border-color 0.2s, box-shadow 0.2s; }
+  .param-card:hover { border-color: #d0d0d8; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .input-field { width: 100%; padding: 12px 16px; border: 1.5px solid #e5e5ea; border-radius: 12px; font-size: 16px; color: #1a1a1a; outline: none; transition: all 0.2s; background: #fafafa; font-weight: 500; }
+  .input-field:focus { border-color: #34C759; box-shadow: 0 0 0 4px rgba(52,199,89,0.1); background: #fff; }
+  .input-field::placeholder { color: #c7c7cc; font-weight: 400; }
+  .input-group { margin-bottom: 12px; }
+  .input-group label { display: block; font-size: 12px; font-weight: 600; color: #86868b; letter-spacing: 0.3px; margin-bottom: 6px; text-transform: uppercase; }
+  .input-unit { font-size: 12px; color: #a1a1a6; margin-top: 4px; padding-left: 4px; }
+  .result-card { border-radius: 20px; padding: 24px; position: relative; overflow: hidden; }
+  .result-value { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
+  .result-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+  .result-item:last-child { border-bottom: none; }
+  .badge-win { background: #e8f5e9; color: #2e7d32; display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; }
+  .badge-warn { background: #fff3e0; color: #e65100; display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; }
+  .badge-info { background: #e3f2fd; color: #1565c0; display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; }
+  .badge-estimate { background: #f3e5f5; color: #7b1fa2; display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-left: 4px; }
+  .section-badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
+  @media (max-width: 640px) {
+    .card { padding: 20px 16px; }
+    .param-card { padding: 16px; }
+    .result-value { font-size: 26px; }
+    .result-card { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="max-w-5xl mx-auto px-4 py-6 md:py-10">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <div class="text-5xl mb-3">🔋</div>
+    <h1 class="text-3xl md:text-4xl font-extrabold text-[#1a1a1a] tracking-tight">储能配置倒算器</h1>
+    <p class="text-base md:text-lg text-[#86868b] mt-2 font-medium">从目标反推配置 · 不是按比例配，而是按需求倒</p>
+    <div class="flex items-center justify-center gap-3 mt-3 text-xs text-[#a1a1a6]">
+      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">储能倒算法</span>
+      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">简化估算</span>
+      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">经济性校验</span>
+    </div>
+  </div>
+
+  <!-- Input Section -->
+  <div class="card mb-6">
+    <div class="flex items-center gap-3 mb-3">
+      <span class="text-2xl">📋</span>
+      <div>
+        <h2 class="text-xl font-bold text-[#1a1a1a]">参数输入</h2>
+        <p class="text-sm text-[#86868b]">填写园区基本参数，系统自动估算无储能基准并倒算储能配置</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <!-- 负荷与电源 -->
+      <div class="md:col-span-2 lg:col-span-3">
+        <div class="flex items-center gap-2 mt-2 mb-3">
+          <span class="text-sm">🏭</span>
+          <span class="text-sm font-bold text-[#1a1a1a]">负荷与电源</span>
+          <div class="flex-1 h-px bg-[#e5e5ea]"></div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>📊 园区最大负荷</label>
+          <input type="number" id="maxLoad" class="input-field" value="50000" step="100" min="0" placeholder="例如 50000">
+          <div class="input-unit">单位：kW</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>⚡ 日用电量</label>
+          <input type="number" id="dailyLoad" class="input-field" value="910000" step="100" min="0" placeholder="例如 910000">
+          <div class="input-unit">单位：kWh/天</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>☀️ 光伏日发电量</label>
+          <input type="number" id="dailyPV" class="input-field" value="440000" step="100" min="0" placeholder="例如 440000">
+          <div class="input-unit">单位：kWh/天（典型日）</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>🔆 光伏午间峰值出力</label>
+          <input type="number" id="pvPeak" class="input-field" value="25000" step="100" min="0" placeholder="例如 25000">
+          <div class="input-unit">单位：kW（午间最大，用于估算充电功率）</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>🌙 缺口时段光伏出力</label>
+          <input type="number" id="pvDuringGap" class="input-field" value="0" step="100" min="0" placeholder="通常为 0">
+          <div class="input-unit">单位：kW（晚高峰光伏基本不出力，默认 0）</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>⏱️ 晚高峰缺口时长</label>
+          <input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24" placeholder="例如 4">
+          <div class="input-unit">单位：小时（光伏不足、负荷仍高的连续时段）</div>
+        </div>
+      </div>
+
+      <!-- 目标与电价 -->
+      <div class="md:col-span-2 lg:col-span-3">
+        <div class="flex items-center gap-2 mt-2 mb-3">
+          <span class="text-sm">🎯</span>
+          <span class="text-sm font-bold text-[#1a1a1a]">目标与电价</span>
+          <div class="flex-1 h-px bg-[#e5e5ea]"></div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>📈 目标自发自用比例</label>
+          <input type="number" id="targetRatio" class="input-field" value="90" step="1" min="0" max="100" placeholder="例如 90">
+          <div class="input-unit">单位：%</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>🔌 目标接网容量</label>
+          <input type="number" id="targetGrid" class="input-field" value="40000" step="100" min="0" placeholder="例如 40000">
+          <div class="input-unit">单位：kW（希望压降到多少）</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>💵 大网综合电价</label>
+          <input type="number" id="gridPrice" class="input-field" value="0.60" step="0.01" min="0" placeholder="例如 0.60">
+          <div class="input-unit">元/kWh</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>🌱 绿电综合成本</label>
+          <input type="number" id="greenCost" class="input-field" value="0.36" step="0.01" min="0" placeholder="例如 0.36">
+          <div class="input-unit">元/kWh</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>📉 容量电价</label>
+          <input type="number" id="capPrice" class="input-field" value="51.9" step="0.1" min="0" placeholder="例如 51.9">
+          <div class="input-unit">元/kW·月</div>
+        </div>
+      </div>
+
+      <!-- 储能参数 -->
+      <div class="md:col-span-2 lg:col-span-3">
+        <div class="flex items-center gap-2 mt-2 mb-3">
+          <span class="text-sm">🔋</span>
+          <span class="text-sm font-bold text-[#1a1a1a]">储能参数</span>
+          <div class="flex-1 h-px bg-[#e5e5ea]"></div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>💰 储能单位成本</label>
+          <input type="number" id="storageCost" class="input-field" value="650" step="10" min="0" placeholder="例如 650">
+          <div class="input-unit">元/kWh</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>⚙️ 放电效率</label>
+          <input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100" placeholder="例如 95">
+          <div class="input-unit">单位：%</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>🔋 可用 SOC 比例</label>
+          <input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100" placeholder="例如 90">
+          <div class="input-unit">单位：%（考虑衰减和保留）</div>
+        </div>
+      </div>
+      <div class="param-card">
+        <div class="input-group">
+          <label>📅 年运行天数</label>
+          <input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365" placeholder="例如 300">
+          <div class="input-unit">单位：天/年</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-6">
+      <button id="calcBtn" class="bg-[#34C759] text-white border-none rounded-xl px-10 py-3.5 text-base font-bold cursor-pointer transition-all hover:bg-[#2db84e] hover:shadow-lg hover:shadow-green-500/25 active:scale-[0.98]" onclick="doCalc()">
+        🔋 开始倒算
+      </button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" style="display:none;">
+
+    <!-- Recommendation summary -->
+    <div class="card mb-6 text-center">
+      <p class="text-sm text-[#86868b] font-medium">推荐储能配置</p>
+      <div class="text-4xl font-extrabold text-[#1a1a1a] mt-2" id="recConfig">--</div>
+      <p class="text-sm text-[#86868b] mt-1" id="recDesc"></p>
+    </div>
+
+    <!-- Two-scenario cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="result-card" style="background:#e8f5e9">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-lg">✅</span>
+          <span class="section-badge" style="background:rgba(46,125,50,0.12);color:#2e7d32;">含容量压降</span>
+        </div>
+        <p class="text-xs text-[#666] mb-1">接网容量压降被电网认可</p>
+        <div class="result-value text-[#2e7d32] mb-3" id="result_with">--</div>
+        <div class="text-sm text-[#555]" id="detail_with"></div>
+      </div>
+      <div class="result-card" style="background:#fff3e0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-lg">⚠️</span>
+          <span class="section-badge" style="background:rgba(230,81,0,0.12);color:#e65100;">不含容量压降</span>
+        </div>
+        <p class="text-xs text-[#666] mb-1">仅靠自发自用收益</p>
+        <div class="result-value text-[#e65100] mb-3" id="result_without">--</div>
+        <div class="text-sm text-[#555]" id="detail_without"></div>
+      </div>
+    </div>
+
+    <!-- Baseline analysis -->
+    <div class="card mb-6">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xl">🔍</span>
+        <h2 class="text-lg font-bold text-[#1a1a1a]">无储能基准 <span class="badge-estimate">系统估算</span></h2>
+      </div>
+      <p class="text-sm text-[#86868b] mb-3">基于光伏渗透率自动估算"不配储时的消纳情况"</p>
+      <div id="baseline_content"></div>
+    </div>
+
+    <!-- Reverse calculation steps -->
+    <div class="card mb-6">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xl">📐</span>
+        <h2 class="text-lg font-bold text-[#1a1a1a]">倒算过程</h2>
+      </div>
+      <p class="text-sm text-[#86868b] mb-3">从目标反推储能配置的每一步</p>
+      <div id="steps_content"></div>
+    </div>
+
+    <!-- Detailed comparison -->
+    <div class="card">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xl">📊</span>
+        <h2 class="text-lg font-bold text-[#1a1a1a]">经济性分项明细</h2>
+      </div>
+      <div id="detail_table"></div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="text-center mt-10 mb-6">
+    <p class="text-xs text-[#c7c7cc] leading-relaxed">
+      王炸小纸条 · 储能配置倒算器<br>
+      基于「储能倒算法」——从自发自用比例和接网容量目标反向推算<br>
+      无储能基准为简化估算，正式测算建议使用8760h逐时数据 · 以上为个人学习工具，不构成投资建议
+    </p>
+    <a href="../../index.html" class="text-xs text-[#007AFF] mt-2 inline-block hover:underline">← 返回工具箱首页</a>
+  </div>
+</div>
+
+<script>
+function fmt(n) { return Number(n).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function fmtMoney(n) { return Number(n).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function fmt1(n) { return Number(n).toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1}); }
+function fmt2(n) { return Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+// Estimate direct consumption ratio without storage based on PV penetration
+function estimateDirectRatio(penetration) {
+  if (penetration <= 0.30) return 0.95;
+  if (penetration <= 0.50) return 0.85;
+  if (penetration <= 0.80) return 0.70;
+  if (penetration <= 1.00) return 0.55;
+  return 0.40;
+}
+
+function doCalc() {
+  // Read inputs
+  var maxLoad = parseFloat(document.getElementById('maxLoad').value) || 0;
+  var dailyLoad = parseFloat(document.getElementById('dailyLoad').value) || 0;
+  var dailyPV = parseFloat(document.getElementById('dailyPV').value) || 0;
+  var pvPeak = parseFloat(document.getElementById('pvPeak').value) || 0;
+  var pvDuringGap = parseFloat(document.getElementById('pvDuringGap').value) || 0;
+  var gapHours = parseFloat(document.getElementById('gapHours').value) || 4;
+  var targetRatio = parseFloat(document.getElementById('targetRatio').value) || 90;
+  var targetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
+  var gridPrice = parseFloat(document.getElementById('gridPrice').value) || 0;
+  var greenCost = parseFloat(document.getElementById('greenCost').value) || 0;
+  var capPrice = parseFloat(document.getElementById('capPrice').value) || 0;
+  var storageCost = parseFloat(document.getElementById('storageCost').value) || 650;
+  var dischargeEff = (parseFloat(document.getElementById('dischargeEff').value) || 95) / 100;
+  var usableSOC = (parseFloat(document.getElementById('usableSOC').value) || 90) / 100;
+  var opDays = parseFloat(document.getElementById('opDays').value) || 300;
+
+  // === Step 1: Estimate without-storage baseline ===
+  var penetration = dailyLoad > 0 ? dailyPV / dailyLoad : 0;
+  var directRatio = estimateDirectRatio(penetration);
+  var directConsumption = dailyPV * directRatio;
+  var surplusPV = dailyPV - directConsumption;
+  var gridDraw = dailyLoad - directConsumption;
+  if (gridDraw < 0) gridDraw = 0;
+  var selfRatio = dailyPV > 0 ? (directConsumption / dailyPV * 100) : 0;
+
+  // === Step 2: Reverse-calculate capacity from self-consumption target ===
+  var targetSelfConsumption = dailyPV * targetRatio / 100;
+  var needMore = targetSelfConsumption - directConsumption;
+  if (needMore < 0) needMore = 0;
+  var capFromSelf = dischargeEff > 0 && usableSOC > 0 ? needMore / dischargeEff / usableSOC : 0;
+
+  // === Step 3: Reverse-calculate power from grid connection target ===
+  var originalGrid = maxLoad;
+  var dischargePower = maxLoad - pvDuringGap - targetGrid;
+  if (dischargePower < 0) dischargePower = 0;
+  // Charging power needed: surplus PV spread over ~4 sun hours
+  var sunHours = 4;
+  var chargePower = sunHours > 0 ? surplusPV / sunHours : 0;
+  var storagePower = Math.max(chargePower, dischargePower);
+
+  // === Step 4: Capacity from peak gap coverage ===
+  var capFromPeak = dischargeEff > 0 && usableSOC > 0 ? dischargePower * gapHours / dischargeEff / usableSOC : 0;
+
+  // === Step 5: Merge ===
+  var storageCapacity = Math.max(capFromSelf, capFromPeak);
+
+  // === Step 6: Economics ===
+  var annualSelfBenefit = needMore * (gridPrice - greenCost) * opDays;
+  var capacityReduction = maxLoad - targetGrid;
+  if (capacityReduction < 0) capacityReduction = 0;
+  // Capacity reduction is limited by what storage can actually deliver
+  var effectiveCapReduction = Math.min(capacityReduction, dischargePower);
+  var annualCapBenefit = effectiveCapReduction * capPrice * 12;
+  var investment = storageCapacity * storageCost;
+  var annualOM = investment * 0.01;
+
+  var annualNetWith = annualSelfBenefit + annualCapBenefit - annualOM;
+  var paybackWith = annualNetWith > 0 ? investment / annualNetWith : Infinity;
+
+  var annualNetWithout = annualSelfBenefit - annualOM;
+  var paybackWithout = annualNetWithout > 0 ? investment / annualNetWithout : Infinity;
+
+  // === Show results ===
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+
+  // Recommendation
+  var powerMW = (storagePower / 1000).toFixed(1);
+  var capacityMWh = (storageCapacity / 1000).toFixed(0);
+  document.getElementById('recConfig').textContent = powerMW + ' MW / ' + capacityMWh + ' MWh';
+  document.getElementById('recDesc').textContent =
+    (needMore > 0 ? '每日搬移 ' + fmt(needMore) + ' kWh 绿电' : '自发自用已达标，无需额外搬移') +
+    (dischargePower > 0 ? ' · 峰值顶 ' + fmt(dischargePower) + ' kW 缺口' : '');
+
+  // Two scenarios
+  document.getElementById('result_with').textContent = paybackWith === Infinity ? '无法回收' : paybackWith.toFixed(1) + ' 年回本';
+  document.getElementById('result_without').textContent = paybackWithout === Infinity ? '无法回收' : paybackWithout.toFixed(1) + ' 年回本';
+
+  document.getElementById('detail_with').innerHTML =
+    '<div class="result-item"><span>年自发自用收益</span><span class="font-mono">¥ ' + fmtMoney(annualSelfBenefit) + '</span></div>' +
+    '<div class="result-item"><span>年容量压降收益</span><span class="font-mono">¥ ' + fmtMoney(annualCapBenefit) + '</span></div>' +
+    '<div class="result-item"><span>年运维成本</span><span class="font-mono text-[#c62828]">- ¥ ' + fmtMoney(annualOM) + '</span></div>' +
+    '<div class="result-item font-bold"><span>年净收益</span><span class="font-mono text-[#2e7d32]">¥ ' + fmtMoney(annualNetWith) + '</span></div>' +
+    '<div class="result-item"><span>储能总投资</span><span class="font-mono">¥ ' + fmtMoney(investment) + '</span></div>' +
+    '<hr class="my-1 border-[#c8e6c9]"><div class="result-item font-bold"><span>静态回收期</span><span class="font-mono text-[#2e7d32]">' + (paybackWith === Infinity ? '∞' : paybackWith.toFixed(1) + ' 年') + '</span></div>';
+
+  document.getElementById('detail_without').innerHTML =
+    '<div class="result-item"><span>年自发自用收益</span><span class="font-mono">¥ ' + fmtMoney(annualSelfBenefit) + '</span></div>' +
+    '<div class="result-item"><span>年运维成本</span><span class="font-mono text-[#c62828]">- ¥ ' + fmtMoney(annualOM) + '</span></div>' +
+    '<div class="result-item font-bold"><span>年净收益</span><span class="font-mono text-[#e65100]">¥ ' + fmtMoney(annualNetWithout) + '</span></div>' +
+    '<div class="result-item"><span>储能总投资</span><span class="font-mono">¥ ' + fmtMoney(investment) + '</span></div>' +
+    '<hr class="my-1 border-[#ffe0b2]"><div class="result-item font-bold"><span>静态回收期</span><span class="font-mono text-[#e65100]">' + (paybackWithout === Infinity ? '∞' : paybackWithout.toFixed(1) + ' 年') + '</span></div>';
+
+  // Baseline analysis
+  var penLevel = penetration <= 0.3 ? '低渗透' : penetration <= 0.6 ? '中等渗透' : penetration <= 0.9 ? '较高渗透' : '高渗透';
+  document.getElementById('baseline_content').innerHTML =
+    '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">光伏渗透率</p><p class="text-lg font-bold mt-1">' + fmt1(penetration * 100) + '%</p><p class="text-xs text-[#a1a1a6]">' + penLevel + '</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">估算直接消纳率</p><p class="text-lg font-bold mt-1">' + fmt1(directRatio * 100) + '% <span class="badge-estimate">估</span></p><p class="text-xs text-[#a1a1a6]">光伏被负荷直接吃掉</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">直接消纳电量</p><p class="text-lg font-bold mt-1">' + fmt(directConsumption) + ' kWh</p><p class="text-xs text-[#a1a1a6]">占日发电 ' + fmt1(selfRatio) + '%</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">富余绿电</p><p class="text-lg font-bold mt-1 text-[#e65100]">' + fmt(surplusPV) + ' kWh</p><p class="text-xs text-[#a1a1a6]">可搬移电量池</p></div>' +
+    '</div>' +
+    '<div class="text-xs text-[#a1a1a6] mt-2">💡 估算方法：光伏渗透率 = 日发电量 ÷ 日用电量。「无储能直接消纳率」基于典型工业负荷与光伏出力曲线的经验匹配度估算。如果你的实际消纳率已知，可联系我替换为实测值。</div>';
+
+  // Reverse calculation steps
+  var stepsHTML = '<div style="font-size:13px;line-height:1.8">';
+
+  stepsHTML += '<div class="flex items-start gap-3 mb-4 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">①</span><div><b>从自发自用目标倒算容量</b><br>';
+  stepsHTML += '目标自发自用电量 = ' + fmt(dailyPV) + ' × ' + targetRatio + '% = <b>' + fmt(targetSelfConsumption) + ' kWh/天</b><br>';
+  stepsHTML += '需新增自发自用 = ' + fmt(targetSelfConsumption) + ' - ' + fmt(directConsumption) + ' = <b>' + fmt(needMore) + ' kWh/天</b><br>';
+  stepsHTML += '储能名义容量 = ' + fmt(needMore) + ' ÷ ' + fmt1(dischargeEff*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromSelf) + ' kWh</b> (' + (capFromSelf/1000).toFixed(0) + ' MWh)';
+  stepsHTML += '</div></div>';
+
+  stepsHTML += '<div class="flex items-start gap-3 mb-4 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">②</span><div><b>从接网容量目标倒算功率</b><br>';
+  stepsHTML += '储能需放电功率 = ' + fmt(maxLoad) + ' - ' + fmt(pvDuringGap) + '(缺口时段光伏) - ' + fmt(targetGrid) + ' = <b>' + fmt(dischargePower) + ' kW</b> (' + (dischargePower/1000).toFixed(1) + ' MW)<br>';
+  stepsHTML += '缺口持续 ' + gapHours + ' 小时，需放电量 = ' + fmt(dischargePower) + ' × ' + gapHours + ' = ' + fmt(dischargePower * gapHours) + ' kWh<br>';
+  stepsHTML += '对应容量（含效率）= ' + fmt(dischargePower * gapHours) + ' ÷ ' + fmt1(dischargeEff*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromPeak) + ' kWh</b> (' + (capFromPeak/1000).toFixed(0) + ' MWh)';
+  stepsHTML += '</div></div>';
+
+  stepsHTML += '<div class="flex items-start gap-3 mb-4 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">③</span><div><b>合并结果</b><br>';
+  stepsHTML += '功率取大：max(充电' + fmt(chargePower) + 'kW, 放电' + fmt(dischargePower) + 'kW) = <b>' + fmt(storagePower) + ' kW</b><br>';
+  stepsHTML += '容量取大：max(自发自用需' + fmt(capFromSelf) + 'kWh, 峰值缺口需' + fmt(capFromPeak) + 'kWh) = <b>' + fmt(storageCapacity) + ' kWh</b><br>';
+  stepsHTML += '→ 推荐配置：<b>' + powerMW + ' MW / ' + capacityMWh + ' MWh</b>';
+  stepsHTML += '</div></div>';
+
+  stepsHTML += '<div class="flex items-start gap-3 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">④</span><div><b>经济性校验</b><br>';
+  stepsHTML += '储能投资 = ' + fmt(storageCapacity) + ' kWh × ' + storageCost + ' 元/kWh = <b>¥ ' + fmtMoney(investment) + '</b><br>';
+  stepsHTML += '年自发自用收益 = ' + fmt(needMore) + ' × (' + gridPrice + ' - ' + greenCost + ') × ' + opDays + ' = <b>¥ ' + fmtMoney(annualSelfBenefit) + '</b><br>';
+  stepsHTML += '年容量压降收益 = ' + fmt(effectiveCapReduction) + ' kW × ' + capPrice + ' 元/kW·月 × 12 = <b>¥ ' + fmtMoney(annualCapBenefit) + '</b>';
+  if (effectiveCapReduction < capacityReduction) {
+    stepsHTML += '<br><span class="text-xs text-[#e65100]">⚠️ 实际压降受储能功率限制：目标压降 ' + fmt(capacityReduction) + ' kW，储能最多顶 ' + fmt(dischargePower) + ' kW</span>';
+  }
+  stepsHTML += '</div></div>';
+
+  stepsHTML += '</div>';
+  document.getElementById('steps_content').innerHTML = stepsHTML;
+
+  // Detail table
+  var capRedPct = annualNetWith > 0 ? (annualCapBenefit / (annualSelfBenefit + annualCapBenefit) * 100).toFixed(0) : 0;
+  document.getElementById('detail_table').innerHTML =
+    '<div class="table-wrap" style="overflow-x:auto;font-size:13px">' +
+    '<table class="w-full" style="border-collapse:collapse;min-width:360px">' +
+    '<tr><th class="p-2 text-left font-semibold" style="background:#f5f5f7;font-size:12px">项目</th><th class="p-2 text-center font-semibold" style="background:#e8f5e9;font-size:12px">含容量压降</th><th class="p-2 text-center font-semibold" style="background:#fff3e0;font-size:12px">不含容量压降</th></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">储能配置</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + powerMW + ' MW / ' + capacityMWh + ' MWh</td></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">新增自发自用电量</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">年自发自用收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">容量压降</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(effectiveCapReduction) + ' kW</td><td class="p-2 text-center" style="font-size:12px;color:#999">不被认可</td></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">年容量压降收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualCapBenefit) + ' (' + capRedPct + '%)</td><td class="p-2 text-center" style="font-size:12px;color:#999">—</td></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">年运维成本</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td></tr>' +
+    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">储能总投资</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(investment) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(investment) + '</td></tr>' +
+    '<tr><td class="p-2 font-bold" style="font-size:13px">静态回收期</td><td class="p-2 text-center font-mono font-bold" style="font-size:13px;color:#2e7d32">' + (paybackWith === Infinity ? '无法回收' : paybackWith.toFixed(1) + ' 年') + '</td><td class="p-2 text-center font-mono font-bold" style="font-size:13px;color:#e65100">' + (paybackWithout === Infinity ? '无法回收' : paybackWithout.toFixed(1) + ' 年') + '</td></tr>' +
+    '</table></div>' +
+    (effectiveCapReduction < capacityReduction && capacityReduction > 0 ?
+      '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 容量压降受储能功率限制：目标压降 ' + fmt(capacityReduction) + ' kW，但储能实际放电功率仅 ' + fmt(dischargePower) + ' kW，有效压降 = ' + fmt(effectiveCapReduction) + ' kW</div>' : '') +
+    (paybackWith === Infinity ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff5f5;color:#c62828">❌ 即使在含容量压降的情况下，年净收益也无法覆盖投资。建议：降低储能单价、提高自发自用比例目标、或寻找峰谷价差等额外收益。</div>' : '') +
+    (paybackWith !== Infinity && paybackWith > 8 ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 回收期超过 8 年，经济性较差。容量压降是否被电网认可是决定因素——如不认可，回收期将延长至 ' + (paybackWithout === Infinity ? '无法回收' : paybackWithout.toFixed(1) + ' 年') + '。</div>' : '');
+}
+</script>
+</body>
+</html>

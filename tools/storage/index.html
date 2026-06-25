@@ -285,11 +285,13 @@ function fmt2(n) { return Number(n).toLocaleString(undefined, {minimumFractionDi
 
 // Estimate direct consumption ratio without storage based on PV penetration
 function estimateDirectRatio(penetration) {
-  if (penetration <= 0.30) return 0.95;
-  if (penetration <= 0.50) return 0.85;
-  if (penetration <= 0.80) return 0.70;
-  if (penetration <= 1.00) return 0.55;
-  return 0.40;
+  // 基于典型工业负荷与光伏曲线的经验匹配度
+  // 渗透率越高，直接消纳比例越低（中午大量富余，早晚仍需下网）
+  if (penetration <= 0.30) return 0.92;
+  if (penetration <= 0.50) return 0.77;
+  if (penetration <= 0.80) return 0.60;
+  if (penetration <= 1.00) return 0.48;
+  return 0.35;
 }
 
 function doCalc() {
@@ -329,9 +331,10 @@ function doCalc() {
   var originalGrid = maxLoad;
   var dischargePower = maxLoad - pvDuringGap - targetGrid;
   if (dischargePower < 0) dischargePower = 0;
-  // Charging power needed: surplus PV spread over ~4 sun hours
+  // Charging power needed: only charge what we actually need to move (needMore kWh)
+  // spread over ~4 peak sun hours
   var sunHours = 4;
-  var chargePower = sunHours > 0 ? surplusPV / sunHours : 0;
+  var chargePower = sunHours > 0 ? needMore / sunHours : 0;
   var storagePower = Math.max(chargePower, dischargePower);
 
   // === Step 4: Capacity from peak gap coverage ===

@@ -115,6 +115,7 @@
       <div class="param-card"><div class="input-group"><label>📈 目标自发自用比例</label><input type="number" id="targetRatio" class="input-field" value="90" step="1" min="0" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔌 目标接网容量</label><input type="number" id="targetGrid" class="input-field" value="40000" step="100" min="0"><div class="input-unit">kW</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔗 缺口时段电网兜底比例</label><input type="number" id="gridCoverage" class="input-field" value="0" step="5" min="0" max="100"><div class="input-unit">%（0=储能全扛）</div></div></div>
+      <div class="param-card"><div class="input-group"><label>🛡️ 缺口时段电源保证出力</label><input type="number" id="guaranteedGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（你能保证缺口时段至少有这么多电源出力；填 0=只信储能）</div></div></div>
       <div class="param-card"><div class="input-group"><label>💵 大网综合电价</label><input type="number" id="gridPrice" class="input-field" value="0.60" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>🌱 绿电综合成本</label><input type="number" id="greenCost" class="input-field" value="0.36" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>📉 容量电价</label><input type="number" id="capPrice" class="input-field" value="51.9" step="0.1" min="0"><div class="input-unit">元/kW·月</div></div></div>
@@ -457,6 +458,10 @@ function applyImport() {
     document.getElementById('windNoonGen').value = Math.round(importData.genNoon || (importData.peakGen * 0.35));
     document.getElementById('windGapGen').value = Math.round(importData.genDuringGap || (importData.peakGen * 0.7));
   }
+  // Auto-set guaranteedGapGen to the 8760-measured genDuringGap (user can override)
+  if (importData.genDuringGap > 0) {
+    document.getElementById('guaranteedGapGen').value = Math.round(importData.genDuringGap);
+  }
 
   // Update data source badge
   document.getElementById('paramSrcBadge').innerHTML = ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760全年均值</span>';
@@ -491,6 +496,7 @@ function doCalc() {
   var targetRatio = parseFloat(document.getElementById('targetRatio').value) || 90;
   var targetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
   var gridCoverage = (parseFloat(document.getElementById('gridCoverage').value) || 0) / 100;
+  var guaranteedGapGen = parseFloat(document.getElementById('guaranteedGapGen').value) || 0;
   var gridPrice = parseFloat(document.getElementById('gridPrice').value) || 0;
   var greenCost = parseFloat(document.getElementById('greenCost').value) || 0;
   var capPrice = parseFloat(document.getElementById('capPrice').value) || 0;
@@ -596,7 +602,7 @@ function doCalc() {
   // === STEP 7: Economics ===
   var annualSelfBenefit = needMore * (gridPrice - greenCost) * opDays;
   var capacityReduction = Math.max(0, maxLoad - targetGrid);
-  var effectiveCapReduction = Math.min(capacityReduction, effectiveDischargePower);
+  var effectiveCapReduction = Math.min(capacityReduction, effectiveDischargePower + guaranteedGapGen);
   var annualCapBenefit = effectiveCapReduction * capPrice * 12;
   var investment = storageCapacity * storageCost;
   var annualOM = investment * 0.01;
@@ -698,7 +704,7 @@ function doCalc() {
       var ecoInvestment = storageCapacity * storageCost;
       var ecoOM = ecoInvestment * 0.01;
       var ecoSelfBenefit = needMore * (gridPrice - greenCost) * opDays;
-      var ecoCapReduction = Math.min(Math.max(0, maxLoad - targetGrid), effectiveDischargePower);
+      var ecoCapReduction = Math.min(Math.max(0, maxLoad - targetGrid), effectiveDischargePower + guaranteedGapGen);
       var ecoCapBenefit = ecoCapReduction * capPrice * 12;
       var ecoWith = ecoSelfBenefit + ecoCapBenefit - ecoOM;
       var ecoWithout = ecoSelfBenefit - ecoOM;
@@ -737,7 +743,9 @@ function doCalc() {
       html += '<div style="font-size:12px;line-height:1.8;color:#888">';
       html += '<b>回收期推导：</b>投资 ¥' + fmtMoney(ecoInvestment) + ' = ' + (storageCapacity/1000).toFixed(0) + ' MWh × ' + storageCost + ' 元/kWh<br>';
       html += '年收益 = ' + fmt(needMore) + ' × (' + gridPrice + ' − ' + greenCost + ') × ' + opDays + ' = ¥' + fmtMoney(ecoSelfBenefit) + '（自发自用）';
-      if (ecoCapReduction > 0) html += ' + ' + fmt(ecoCapReduction) + ' kW × ' + capPrice + ' × 12 = ¥' + fmtMoney(ecoCapBenefit) + '（压降）';
+      if (ecoCapReduction > 0) {
+        html += ' + min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(effectiveDischargePower) + '+' + fmt(guaranteedGapGen) + ') × ' + capPrice + ' × 12 = ¥' + fmtMoney(ecoCapBenefit) + '（压降）';
+      }
       html += '<br>回收期 = ¥' + fmtMoney(ecoInvestment) + ' ÷ (¥' + fmtMoney(ecoSelfBenefit) + (ecoCapReduction > 0 ? ' + ¥' + fmtMoney(ecoCapBenefit) : '') + ' − ¥' + fmtMoney(ecoOM) + ')';
       html += '</div>';
       html += '</div>';
@@ -764,6 +772,7 @@ function doCalc() {
   dbg.push('directConsump=' + fmt(directConsumption) + ' | needMore=' + fmt(needMore) + ' | exportExcess%=' + fmt1(exportExcessRatio*100) + '% | dailyExcess=' + fmt(dailyExcess));
   dbg.push('capDischarge=' + fmt(capDischarge) + ' | capPeak=' + fmt(capFromPeak) + ' | capExport=' + fmt(capFromExport) + ' | raw=' + fmt(storageCapacityRaw) + ' | capped=' + fmt(storageCapacity));
   dbg.push('effDiscPower=' + fmt(effectiveDischargePower) + ' | chargePower=' + fmt(chargePowerNeeded) + ' | power=' + fmt(storagePower) + 'kW | hours=' + (storagePower>0?(storageCapacity/storagePower).toFixed(1):'0'));
+  dbg.push('capacityReduction=maxLoad-targetGrid=' + fmt(Math.max(0, maxLoad - targetGrid)) + ' | capReduction=min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(effectiveDischargePower) + '+' + fmt(guaranteedGapGen) + ')=' + fmt(effectiveCapReduction) + 'kW');
   dbg.push('postStorage: export ' + fmt1(exportRatio*100) + '%→' + fmt1(postStorageExportRatio*100) + '% | selfGen ' + fmt1(selfGenRatio*100) + '%→' + fmt1(postStorageSelfGenRatio*100) + '% | mustCurtail ' + fmt(mustCurtailBeyondExport) + 'kWh/d (' + fmt1(mustCurtailRatio*100) + '%)');
   dbg.push('has8760data=' + (imported ? 'YES' : 'NO') + ' | source=' + currentSource + ' | allPassed=' + allPassed);
   console.log('DEBUG:\n' + dbg.join('\n'));
@@ -958,7 +967,9 @@ function doCalc() {
   }
   if (capFromExport > capDischarge) stepsHTML += '<span class="text-xs text-[#e65100]">⚠️ 充电容量（上网超限派生）主导需求</span><br>';
   stepsHTML += '→ <b>最终配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）</b><br>';
-  stepsHTML += '→ 储能投资 ≈ ¥ ' + fmtMoney(investment);
+  stepsHTML += '→ 储能投资 ≈ ¥ ' + fmtMoney(investment) + '<br>';
+  stepsHTML += '→ 容量压降 = min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(effectiveDischargePower) + '+' + fmt(guaranteedGapGen) + ') = <b>' + fmt(effectiveCapReduction) + ' kW</b><br>';
+  stepsHTML += '（你想压降 ' + fmt(Math.max(0, maxLoad - targetGrid)) + ' kW，储能放电 ' + fmt(effectiveDischargePower) + ' kW + 电源保证 ' + fmt(guaranteedGapGen) + ' kW 可兜底 ' + fmt(effectiveDischargePower + guaranteedGapGen) + ' kW）';
   stepsHTML += '</div></div>';
   stepsHTML += '</div>';
   document.getElementById('steps_content').innerHTML = stepsHTML;

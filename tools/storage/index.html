@@ -124,7 +124,7 @@
       <div class="param-card"><div class="input-group"><label>💰 储能单位成本</label><input type="number" id="storageCost" class="input-field" value="650" step="10" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>⬇️ 放电效率</label><input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔋 可用 SOC 比例</label><input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⏱️ 储能时长上限</label><input type="number" id="maxStorageHours" class="input-field" value="4" step="0.5" min="0.5" max="24"><div class="input-unit">小时（充电/放电时长硬约束，防止过度配储；光伏推荐 2-4h）</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⏱️ 储能时长上限</label><input type="number" id="maxStorageHours" class="input-field" value="3" step="0.5" min="0.5" max="24"><div class="input-unit">小时（硬约束，超过即阻断并提示弃电）</div></div></div>
       <div class="param-card"><div class="input-group"><label>📅 年运行天数</label><input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365"><div class="input-unit">天/年</div></div></div>
 
     </div>
@@ -560,24 +560,22 @@ function doCalc() {
   var chargeWindow = currentSource === 'pv' ? 4 : 6;
   var chargePowerNeeded = chargeWindow > 0 ? needMore / chargeWindow : 0;
 
-  // === STEP 6: Merge and apply hard cap ===
-  // Power: max(charge, discharge)
+  // === STEP 6: Merge raw, check 3h gate ===
   var storagePower = Math.max(chargePowerNeeded, effectiveDischargePower);
-  // Capacity: max(discharge side, export-excess charge side), then capped by storage hours
   var storageCapacityRaw = Math.max(capDischarge, capFromExport);
-  var storageCapacityCapped = Math.min(storageCapacityRaw, storagePower * maxStorageH);
-  var capacityIsCapped = storageCapacityCapped < storageCapacityRaw;
-  var storageCapacity = storageCapacityCapped;
+  var rawStorageHours = storagePower > 0 ? storageCapacityRaw / storagePower : 0;
+  var exceedsHourLimit = rawStorageHours > maxStorageH;
 
-  // Post-cap: how much export remains?
-  var cappedExportRatio = exportRatio;
-  if (capacityIsCapped && capFromExport > capDischarge) {
-    // The cap limits how much export we can absorb
-    var absorbedByStorage = storageCapacity * dischargeEffVal * usableSOC; // daily kWh dischargeable
-    var remainingExport = Math.max(0, dailyExcess - absorbedByStorage);
-    cappedExportRatio = dailyGen > 0 ? (exportRatio * dailyGen - absorbedByStorage + TH_EXPORT * dailyGen) / dailyGen : exportRatio;
-    cappedExportRatio = Math.min(exportRatio, Math.max(0, cappedExportRatio));
-  }
+  // Cap capacity + compute curtailment
+  var storageCapacity = Math.min(storageCapacityRaw, storagePower * maxStorageH);
+  var capacityIsCapped = storageCapacity < storageCapacityRaw;
+
+  // How much energy CAN we absorb (capped) vs how much NEEDS to be absorbed
+  var absorbableDaily = storageCapacity * dischargeEffVal * usableSOC;  // kWh/day we can actually discharge
+  var curtailNeeded = Math.max(0, dailyExcess - absorbableDaily);        // must curtail this much daily
+  var curtailRatio = dailyGen > 0 ? curtailNeeded / dailyGen : 0;       // as fraction of total generation
+  var residualExport = exportRatio * dailyGen - absorbableDaily;         // after storage absorbs what it can
+  var cappedExportRatio = dailyGen > 0 ? Math.max(0, residualExport) / dailyGen : 0;
 
   // Surplus check
   var surplusPowerAvailable = chargeWindow > 0 ? surplusTotal / chargeWindow : 0;
@@ -594,6 +592,69 @@ function doCalc() {
   var paybackWith = annualNetWith > 0 ? investment / annualNetWith : Infinity;
   var annualNetWithout = annualSelfBenefit - annualOM;
   var paybackWithout = annualNetWithout > 0 ? investment / annualNetWithout : Infinity;
+
+  // === GATE: 3h hard stop → curtailment scenario ===
+  if (exceedsHourLimit) {
+    (function renderCurtailment() {
+      var srcLabel = currentSource === 'pv' ? '光伏' : '风电';
+      var powerMW = (storagePower / 1000).toFixed(1);
+      var rawMWh = (storageCapacityRaw / 1000).toFixed(0);
+      var cappedMWh = (storageCapacity / 1000).toFixed(0);
+      var curtailKWhPerDay = fmt(curtailNeeded);
+      var curtailPct = fmt1(curtailRatio * 100);
+
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+
+      // Build curtailment page HTML directly
+      var html = '';
+
+      // Header
+      html += '<div class="card mb-6 text-center" style="border:2px solid #ffcdd2">';
+      html += '<p class="text-3xl mb-2">🚫</p>';
+      html += '<h2 class="text-xl font-bold text-[#c62828]">储能时长超限 · 方案不可行</h2>';
+      html += '<p class="text-sm text-[#86868b] mt-2">原始需求 <b>' + fmt1(rawStorageHours) + ' 小时</b>，超过 ' + maxStorageH + ' 小时上限，不应通过加储能来解决所有倒送电量问题。</p>';
+      html += '</div>';
+
+      // Key numbers
+      html += '<div class="card mb-6">';
+      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">📊 现状与约束</h2>';
+      html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">';
+      html += '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-lg font-bold mt-1 text-[#e65100]">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">需≤20%</p></div>';
+      html += '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">若压至20%需储能</p><p class="text-lg font-bold mt-1 text-[#c62828]">' + rawMWh + ' MWh</p><p class="text-xs text-[#a1a1a6]">' + rawStorageHours.toFixed(1) + ' h > ' + maxStorageH + ' h</p></div>';
+      html += '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">' + maxStorageH + 'h上限可配</p><p class="text-lg font-bold mt-1">' + cappedMWh + ' MWh</p><p class="text-xs text-[#a1a1a6]">' + maxStorageH + ' h · ' + powerMW + ' MW</p></div>';
+      html += '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">储能投资</p><p class="text-lg font-bold mt-1">¥ ' + fmtMoney(storageCapacity * storageCost) + '</p><p class="text-xs text-[#a1a1a6]">限至 ' + cappedMWh + ' MWh 后</p></div>';
+      html += '</div>';
+
+      // Curtailment analysis
+      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">⚡ 若接受 ' + maxStorageH + 'h 上限，需弃电量</h2>';
+      html += '<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">';
+      html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">日均需弃电</p><p class="text-2xl font-bold mt-1 text-[#c62828]">' + curtailKWhPerDay + ' kWh</p><p class="text-xs text-[#888]">发电量 ' + fmt(dailyGen) + ' kWh</p></div>';
+      html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">弃电比例</p><p class="text-2xl font-bold mt-1 text-[#c62828]">' + curtailPct + '%</p><p class="text-xs text-[#888]">占日发电量</p></div>';
+      html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">弃电后上网率</p><p class="text-2xl font-bold mt-1 ' + (cappedExportRatio <= 0.2 ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(cappedExportRatio*100) + '%</p><p class="text-xs text-[#888]">' + (cappedExportRatio <= 0.2 ? '≤20% ✅' : '仍需>20%') + '</p></div>';
+      html += '</div>';
+
+      // Suggestions
+      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">💡 调整建议</h2>';
+      html += '<div style="font-size:13px;line-height:1.8;color:#555">';
+      html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">①</span><span><b>接受弃电</b>：允许 ' + srcLabel + ' 部分发电量不上网也不消纳，将上网率重新设为 ≤20% 的目标值但仍接受实际弃电量。这在实际项目中是常规做法。</span></div>';
+      html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">②</span><span><b>降低自发自用目标</b>：将目标自发自用比例从 ' + targetRatio + '% 下调，减少需搬移电量，从而降低储能容量需求。</span></div>';
+      html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">③</span><span><b>放宽上网比例阈值</b>：查看当地省级能源主管部门是否允许超过 20%（688 号文规定"具体比例可由各省级能源主管部门结合实际确定"）。</span></div>';
+      var adjustedTarget = targetRatio - Math.ceil((curtailRatio * 100) / 2);
+      html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">④</span><span><b>尝试调参</b>：建议将目标自发自用比例调至 <b>' + Math.max(60, adjustedTarget) + '%</b> 左右，或手动调大储能时长上限重新测试。</span></div>';
+      html += '</div>';
+
+      html += '</div>'; // close card
+
+      // Action
+      html += '<div class="text-center mt-4 mb-6">';
+      html += '<button class="bg-[#007AFF] text-white border-none rounded-xl px-8 py-3 text-base font-bold cursor-pointer" onclick="document.getElementById(\'results\').style.display=\'none\';window.scrollTo({top:0,behavior:\'smooth\'})">🔧 返回修改参数</button>';
+      html += '</div>';
+
+      document.getElementById('results').innerHTML = html;
+    })();
+    return;
+  }
 
   // === RENDER ===
   document.getElementById('results').style.display = 'block';

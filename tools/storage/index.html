@@ -656,6 +656,42 @@ function doCalc() {
       html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">④</span><span><b>尝试调参</b>：建议将目标自发自用比例调至 <b>' + Math.max(60, adjustedTarget) + '%</b> 左右，或手动调大储能时长上限重新测试。</span></div>';
       html += '</div>';
 
+      html += '</div>'; // close suggestions div
+
+      // Full calculation trace
+      html += '<hr style="border-style:solid;border-width:1px 0 0;border-color:#eee;margin:18px 0">';
+      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">📐 完整倒算过程</h2>';
+      html += '<div style="font-size:12px;line-height:1.9;color:#555">';
+
+      html += '<b>① 放电容量：从自发自用目标倒算</b><br>';
+      html += '目标自发自用 = ' + fmt(dailyGen) + ' × ' + targetRatio + '% = <b>' + fmt(targetSelfConsumption) + ' kWh/天</b><br>';
+      html += '需新增 = ' + fmt(targetSelfConsumption) + ' − ' + fmt(directConsumption) + ' = <b>' + fmt(needMore) + ' kWh/天</b><br>';
+      html += '放电侧容量 = ' + fmt(needMore) + ' ÷ 95.0% ÷ 90.0% = <b>' + fmt(capFromDischarge) + ' kWh</b> (' + (capFromDischarge/1000).toFixed(0) + ' MWh)<br>';
+      html += '缺口侧容量 = ' + fmt(effectiveDischargePower) + 'kW × ' + gapHours + 'h ÷ 95.0% ÷ 90.0% = <b>' + fmt(capFromPeak) + ' kWh</b><br>';
+      html += '放电容量汇总 = max(' + fmt(capFromDischarge) + ', ' + fmt(capFromPeak) + ') = <b>' + fmt(Math.max(capFromDischarge, capFromPeak)) + ' kWh</b><br><br>';
+
+      html += '<b>② 充电容量：从上网超限部分派生</b><br>';
+      html += '上网比例 = <b>' + fmt1(exportRatio*100) + '%</b>，超限 = ' + fmt1(exportExcessRatio*100) + '%<br>';
+      html += '日均超量 = ' + fmt1(exportExcessRatio*100) + '% × ' + fmt(dailyGen) + ' = <b>' + fmt(dailyExcess) + ' kWh/天</b><br>';
+      html += '充电侧容量 = ' + fmt(dailyExcess) + ' ÷ 95.0% ÷ 90.0% = <b>' + fmt(capFromExport) + ' kWh</b> (' + (capFromExport/1000).toFixed(0) + ' MWh)<br><br>';
+
+      html += '<b>③ 放电功率</b><br>';
+      html += '缺口时段出力 = <b>' + fmt(genDuringGap) + ' kW</b><br>';
+      html += '缺口负荷 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
+      html += '储能实需放电 = (' + fmt(gapLoad) + ' − ' + fmt(targetGrid) + ') × ' + fmt1((1-gridCoverage)*100) + '% = <b>' + fmt(effectiveDischargePower) + ' kW</b><br><br>';
+
+      html += '<b>④ 充电功率</b><br>';
+      html += '充电窗口 = <b>' + chargeWindow + ' h</b>，充电功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + ' = <b>' + fmt(chargePowerNeeded) + ' kW</b><br><br>';
+
+      html += '<b>⑤ 合并 & 时长约束</b><br>';
+      html += '功率 = max(充电 ' + fmt(chargePowerNeeded) + ', 放电 ' + fmt(effectiveDischargePower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
+      html += '原始容量 = max(放电 ' + fmt(Math.max(capFromDischarge, capFromPeak)) + ', 充电 ' + fmt(capFromExport) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
+      html += '原始时长 = ' + fmt(storageCapacityRaw) + ' ÷ ' + fmt(storagePower) + ' = <b>' + fmt1(rawStorageHours) + ' h</b><br>';
+      html += '<span style="color:#c62828">→ ' + (storageCapacityRaw/1000).toFixed(0) + ' MWh ÷ ' + (storagePower/1000).toFixed(1) + ' MW = <b>' + fmt1(rawStorageHours) + ' h > ' + maxStorageH + ' h</b>，触发阻断</span><br>';
+      html += '受 ' + maxStorageH + 'h 上限：' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b> (' + (storageCapacity/1000).toFixed(0) + ' MWh)，削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh';
+
+      html += '</div>';
+
       html += '</div>'; // close card
 
       // Action

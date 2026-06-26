@@ -296,19 +296,19 @@ function parse8760(rows) {
     if (s.min >= 40000 && s.max <= 60000) bestTime = parseInt(j);
     // Gen column: predominantly negative, range ~-30 to 0
     if (negPct > 0.5 && negPct > bestGenNegPct) { bestGenNegPct = negPct; bestGen = parseInt(j); }
-    // Load column: predominantly positive, range ~1-100
-    if (posPct > 0.5 && posPct > bestLoadPosPct) { bestLoadPosPct = posPct; bestLoad = parseInt(j); }
+    // Load column: predominantly positive, reasonable range (not Excel time dates)
+    var isTimeRange = (s.min >= 40000 && s.max <= 60000);
+    if (posPct > 0.5 && !isTimeRange && posPct > bestLoadPosPct) { bestLoadPosPct = posPct; bestLoad = parseInt(j); }
   }
 
   // Fallback: prefer Date-object column over serial-number column
   if (bestTime < 0 && bestDateCol >= 0) bestTime = bestDateCol;
   if (bestTime < 0) bestTime = 0;
   if (bestLoad < 0 && bestGen >= 0) {
-    // Load is likely the other numeric column
-    for (var j in colStats) { if (parseInt(j) !== bestGen && colStats[j].total >= 10) { bestLoad = parseInt(j); break; } }
+    for (var j in colStats) { if (parseInt(j) !== bestGen && colStats[j].total >= 10 && colStats[j].max < 10000) { bestLoad = parseInt(j); break; } }
   }
   if (bestGen < 0 && bestLoad >= 0) {
-    for (var j in colStats) { if (parseInt(j) !== bestLoad && colStats[j].total >= 10) { bestGen = parseInt(j); break; } }
+    for (var j in colStats) { if (parseInt(j) !== bestLoad && colStats[j].total >= 10 && colStats[j].min < 0) { bestGen = parseInt(j); break; } }
   }
   if (bestLoad < 0 || bestGen < 0) {
     var msg = '自动检测列失败。检测到 ' + Object.keys(colStats).length + ' 个数值列：';

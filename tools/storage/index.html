@@ -433,11 +433,17 @@ function applyImport() {
   document.getElementById('dailyLoad').value = Math.round(importData.dailyLoad);
   document.getElementById('maxLoad').value = Math.round(importData.maxLoad);
   document.getElementById('gapHours').value = importData.gapHours;
-  // Auto-set targetGrid to ~80% of maxLoad if default (40000) is far off
+  // Auto-set targetGrid smarter: maxLoad minus some fraction of wind output during gap
   var existingTargetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
-  var suggestedGrid = Math.round(importData.maxLoad * 0.8);
+  var suggestedGrid;
+  if (importData.sourceType === 'wind') {
+    // Wind has evening output → gap is smaller → targetGrid should be tighter
+    suggestedGrid = Math.round(importData.maxLoad - importData.genDuringGap * 0.5);
+  } else {
+    suggestedGrid = Math.round(importData.maxLoad * 0.8);
+  }
   if (existingTargetGrid === 40000 || existingTargetGrid > importData.maxLoad * 3) {
-    document.getElementById('targetGrid').value = suggestedGrid;
+    document.getElementById('targetGrid').value = Math.max(0, suggestedGrid);
   }
 
   if (importData.sourceType === 'pv') {
@@ -629,6 +635,25 @@ function doCalc() {
   if (capFromExport > capDischarge) recParts.push('充电容量由上网超限 ' + fmt1(dailyExcess/1000) + ' MWh/天 主导 ⚠️');
   if (recParts.length === 0) recParts.push('自发自用已达标');
   document.getElementById('recDesc').innerHTML = recParts.join(' · ');
+
+  // Warn if discharge power is zero (common for wind projects with strong evening output)
+  if (effectiveDischargePower <= 0 && dailyGen > 0) {
+    var warnDiv = document.getElementById('dischargeZeroWarn');
+    if (!warnDiv) {
+      warnDiv = document.createElement('div');
+      warnDiv.id = 'dischargeZeroWarn';
+      warnDiv.style.cssText = 'margin:12px 0;padding:14px 18px;background:#fff8e1;border:1px solid #ffe082;border-radius:12px;font-size:13px;line-height:1.6;color:#8d6e00;text-align:left';
+      var recCard = document.getElementById('recConfig').parentNode;
+      recCard.appendChild(warnDiv);
+    }
+    warnDiv.innerHTML = '<b>⚠️ 容量压降收益为 0</b> — 原因：缺口时段电源出力（' + fmt(genDuringGap) + ' kW）足够高，' +
+      'maxLoad(' + fmt(maxLoad) + ') − genDuringGap(' + fmt(genDuringGap) + ') = <b>' + fmt(maxLoad - genDuringGap) + ' kW</b> ≤ targetGrid(' + fmt(targetGrid) + ' kW)。' +
+      '储能放电功率需求为 0，因此容量电价等参数的变化不影响回收期。<br>' +
+      '💡 <b>这是项目本身的特性</b>（风电晚高峰出力强），不是计算错误。如需测试容量电价敏感性，请<b>调小缺口时段出力</b>或<b>降低目标接网容量</b>至 < ' + fmt(Math.max(0, maxLoad - genDuringGap)) + ' kW。';
+  } else {
+    var w = document.getElementById('dischargeZeroWarn');
+    if (w) w.innerHTML = '';
+  }
 
   // Economics cards
   document.getElementById('result_with').textContent = paybackWith === Infinity ? '无法回收' : paybackWith.toFixed(1) + ' 年回本';

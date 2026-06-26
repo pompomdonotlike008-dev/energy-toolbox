@@ -248,46 +248,90 @@ function handleFile(e) {
 }
 
 function parse8760(rows) {
-  var hdrIdx = 0;
-  for (var i = 0; i < Math.min(5, rows.length); i++) {
+  // === Auto-detect columns by data pattern (no header dependency) ===
+  // Scan first 200 rows: find which numeric columns have the right signal
+  var sampleN = Math.min(200, rows.length);
+  var colStats = {}; // {colIdx: {neg:0, pos:0, zero:0, total:0}}
+
+  for (var i = 0; i < sampleN; i++) {
+    var r = rows[i]; if (!r || r.length < 3) continue;
+    for (var j = 0; j < r.length; j++) {
+      var v = parseFloat(r[j]);
+      if (isNaN(v)) continue;
+      if (!colStats[j]) colStats[j] = {neg:0, pos:0, zero:0, total:0, min:Infinity, max:-Infinity};
+      colStats[j].total++;
+      if (v < 0) colStats[j].neg++; else if (v > 0) colStats[j].pos++; else colStats[j].zero++;
+      if (v < colStats[j].min) colStats[j].min = v;
+      if (v > colStats[j].max) colStats[j].max = v;
+    }
+  }
+
+  // Find gen column: highest % of negative values (wind/farm output)
+  var bestGen = -1, bestGenNegPct = 0;
+  // Find load column: highest % of positive values, range ~1-1000
+  var bestLoad = -1, bestLoadPosPct = 0;
+  // Find time column: contains Excel serial dates (40000-60000) or date objects
+  var bestTime = -1, dateCounts = {};
+
+  // Also scan for Date objects (not caught by parseFloat)
+  for (var i = 0; i < Math.min(50, rows.length); i++) {
     var r = rows[i]; if (!r) continue;
     for (var j = 0; j < r.length; j++) {
-      var v = r[j];
-      if (typeof v === 'string' && (v.indexOf('时间') >= 0 || v.indexOf('时') >= 0)) { hdrIdx = i; break; }
-      if (v instanceof Date && !isNaN(v.getTime())) { hdrIdx = i; break; }
-      if (typeof v === 'number' && v > 40000 && v < 60000) { hdrIdx = i; break; }
+      if (r[j] instanceof Date && !isNaN(r[j].getTime())) {
+        if (!dateCounts[j]) dateCounts[j] = 0;
+        dateCounts[j]++;
+      }
     }
-    if (hdrIdx > 0) break;
+  }
+  var bestDateCol = -1, bestDateN = 0;
+  for (var j in dateCounts) { if (dateCounts[j] > bestDateN) { bestDateN = dateCounts[j]; bestDateCol = parseInt(j); } }
+
+  for (var j in colStats) {
+    var s = colStats[j];
+    if (s.total < 10) continue;
+    var negPct = s.neg / s.total;
+    var posPct = s.pos / s.total;
+
+    // Time column: values in range 40000-60000 (Excel serial dates ~2025)
+    if (s.min >= 40000 && s.max <= 60000) bestTime = parseInt(j);
+    // Gen column: predominantly negative, range ~-30 to 0
+    if (negPct > 0.5 && negPct > bestGenNegPct) { bestGenNegPct = negPct; bestGen = parseInt(j); }
+    // Load column: predominantly positive, range ~1-100
+    if (posPct > 0.5 && posPct > bestLoadPosPct) { bestLoadPosPct = posPct; bestLoad = parseInt(j); }
   }
 
-  var headers = rows[hdrIdx] || [];
-  var dataStart = hdrIdx + 1;
-  var colTime = -1, colLoad = -1, colGen = -1;
-  for (var j = 0; j < headers.length; j++) {
-    var h = String(headers[j] || '');
-    if (h.indexOf('时间') >= 0 || h.indexOf('时') >= 0) colTime = j;
-    if (h.indexOf('负荷') >= 0 || h.indexOf('用电') >= 0) colLoad = j;
-    if (h.indexOf('出力') >= 0 || h.indexOf('发电') >= 0 || h.indexOf('电源') >= 0 || h.indexOf('风电') >= 0 || h.indexOf('光伏') >= 0) colGen = j;
+  // Fallback: prefer Date-object column over serial-number column
+  if (bestTime < 0 && bestDateCol >= 0) bestTime = bestDateCol;
+  if (bestTime < 0) bestTime = 0;
+  if (bestLoad < 0 && bestGen >= 0) {
+    // Load is likely the other numeric column
+    for (var j in colStats) { if (parseInt(j) !== bestGen && colStats[j].total >= 10) { bestLoad = parseInt(j); break; } }
   }
-  if (colLoad < 0 && headers.length >= 2) colLoad = 1;
-  if (colGen < 0 && headers.length >= 3) colGen = 2;
-  if (colTime < 0 && headers.length >= 1) colTime = 0;
-  if (colLoad < 0 || colGen < 0) throw new Error('未识别到负荷列和电源列。表头：' + headers.join(', '));
+  if (bestGen < 0 && bestLoad >= 0) {
+    for (var j in colStats) { if (parseInt(j) !== bestLoad && colStats[j].total >= 10) { bestGen = parseInt(j); break; } }
+  }
+  if (bestLoad < 0 || bestGen < 0) {
+    var msg = '自动检测列失败。检测到 ' + Object.keys(colStats).length + ' 个数值列：';
+    for (var j in colStats) { msg += ' 列' + j + '（负' + colStats[j].neg + '正' + colStats[j].pos + '）'; }
+    throw new Error(msg);
+  }
 
-  var totalLoad = 0, totalGen = 0, directConsumption = 0, exported = 0;
-  var maxLoadVal = 0, maxGenVal = 0;
-  var count = 0;
+  var colTime = bestTime, colLoad = bestLoad, colGen = bestGen;
+
+  // Sign convention: scan all rows to determine if gen column is all-negative
   var negCount = 0, posCount = 0;
-  // Wind specific: noon hours 11-15, peak hours 18-22
-  var windNoonTotal = 0, windNoonN = 0, windGapTotal = 0, windGapN = 0;
-
-  for (var k = dataStart; k < rows.length && k < dataStart + 100; k++) {
-    var r = rows[k]; if (!r || r.length <= Math.max(colLoad, colGen)) continue;
+  for (var k = 0; k < Math.min(200, rows.length); k++) {
+    var r = rows[k]; if (!r || r.length <= Math.max(colGen)) continue;
     var gv = parseFloat(r[colGen]); if (!isNaN(gv)) { if (gv < 0) negCount++; else if (gv > 0) posCount++; }
   }
   var genIsNegative = negCount > posCount * 3;
 
-  for (var k = dataStart; k < rows.length; k++) {
+  var totalLoad = 0, totalGen = 0, directConsumption = 0, exported = 0;
+  var maxLoadVal = 0, maxGenVal = 0;
+  var count = 0;
+  var windNoonTotal = 0, windNoonN = 0, windGapTotal = 0, windGapN = 0;
+
+  for (var k = 0; k < rows.length; k++) {
     var r = rows[k]; if (!r || r.length <= Math.max(colLoad, colGen)) continue;
     var dt = r[colTime];
     var lv = parseFloat(r[colLoad]); var gv = parseFloat(r[colGen]);
@@ -302,10 +346,13 @@ function parse8760(rows) {
     count++;
 
     // Wind typical day extraction if user selected wind
-    if (currentSource === 'wind' && dt) {
+    if (currentSource === 'wind' && dt != null) {
       var h = -1;
-      if (dt instanceof Date) h = dt.getHours();
-      else if (typeof dt === 'number' && dt < 1) h = Math.floor(dt * 24);
+      if (dt instanceof Date && !isNaN(dt.getTime())) h = dt.getHours();
+      else if (typeof dt === 'number') {
+        if (dt < 1) h = Math.floor(dt * 24);
+        else if (dt > 40000) h = Math.floor((dt % 1) * 24);
+      }
       if (h >= 0 && h < 24) {
         if (h >= 11 && h <= 14) { windNoonTotal += genAbs; windNoonN++; }
         if (h >= 18 && h <= 21) { windGapTotal += genAbs; windGapN++; }

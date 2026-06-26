@@ -8,42 +8,37 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  * { font-family: 'Inter', 'PingFang SC', 'Helvetica Neue', sans-serif; }
-  body { background: #f5f5f7; }
-  .card { background: #fff; border-radius: 20px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-  .param-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; transition: border-color 0.2s, box-shadow 0.2s; }
-  .param-card:hover { border-color: #d0d0d8; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-  .input-field { width: 100%; padding: 12px 16px; border: 1.5px solid #e5e5ea; border-radius: 12px; font-size: 16px; color: #1a1a1a; outline: none; transition: all 0.2s; background: #fafafa; font-weight: 500; }
-  .input-field:focus { border-color: #34C759; box-shadow: 0 0 0 4px rgba(52,199,89,0.1); background: #fff; }
-  .input-field::placeholder { color: #c7c7cc; font-weight: 400; }
-  .input-group { margin-bottom: 12px; }
-  .input-group label { display: block; font-size: 12px; font-weight: 600; color: #86868b; letter-spacing: 0.3px; margin-bottom: 6px; text-transform: uppercase; }
-  .input-unit { font-size: 12px; color: #a1a1a6; margin-top: 4px; padding-left: 4px; }
-  .result-card { border-radius: 20px; padding: 24px; position: relative; overflow: hidden; }
-  .result-value { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
-  .result-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid rgba(0,0,0,0.04); }
-  .result-item:last-child { border-bottom: none; }
-  .badge-go { background: #e8f5e9; color: #2e7d32; display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px }
-  .badge-skip { background: #f5f5f7; color: #86868b; display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px }
+  * { font-family: 'Inter','PingFang SC','Helvetica Neue',sans-serif; }
+  body { background:#f5f5f7; }
+  .card { background:#fff; border-radius:20px; padding:28px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .param-card { background:#fff; border-radius:16px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.03); border:1px solid #f0f0f0; transition:border-color .2s, box-shadow .2s; }
+  .param-card:hover { border-color:#d0d0d8; box-shadow:0 4px 12px rgba(0,0,0,0.06); }
+  .input-field { width:100%; padding:12px 16px; border:1.5px solid #e5e5ea; border-radius:12px; font-size:16px; color:#1a1a1a; outline:none; transition:all .2s; background:#fafafa; font-weight:500; }
+  .input-field:focus { border-color:#34C759; box-shadow:0 0 0 4px rgba(52,199,89,0.1); background:#fff; }
+  .input-field::placeholder { color:#c7c7cc; font-weight:400; }
+  .input-group { margin-bottom:12px; }
+  .input-group label { display:block; font-size:12px; font-weight:600; color:#86868b; letter-spacing:.3px; margin-bottom:6px; text-transform:uppercase; }
+  .input-unit { font-size:12px; color:#a1a1a6; margin-top:4px; padding-left:4px; }
+  .result-card { border-radius:20px; padding:24px; position:relative; overflow:hidden; }
+  .result-value { font-size:32px; font-weight:800; letter-spacing:-0.5px; }
+  .result-item { display:flex; justify-content:space-between; padding:8px 0; font-size:14px; border-bottom:1px solid rgba(0,0,0,0.04); }
+  .result-item:last-child { border-bottom:none; }
+  .badge-go { background:#e8f5e9; color:#2e7d32; display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px }
+  .badge-skip { background:#f5f5f7; color:#86868b; display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px }
+  .badge-warn { background:#fff3e0; color:#e65100; display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px }
   .badge-estimate { background:#f3e5f5;color:#7b1fa2;display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:4px }
+  .badge-policy { background:#e3f2fd; color:#1565c0; display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:4px }
   .section-badge { display:inline-block;font-size:11px;font-weight:700;letter-spacing:1.5px;padding:4px 12px;border-radius:20px;text-transform:uppercase }
-  .radio-group { display: flex; gap: 4px; background: #f5f5f7; border-radius: 12px; padding: 4px; }
-  .radio-option { flex: 1; text-align: center; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; color: #86868b; transition: all 0.2s; user-select: none; }
-  .radio-option.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-  .radio-option.pv { border: 2px solid transparent; }
-  .radio-option.pv.active { border-color: #e65100; }
-  .radio-option.wind { border: 2px solid transparent; }
-  .radio-option.wind.active { border-color: #1565c0; }
-  .upload-zone { border: 2px dashed #d0d0d8; border-radius: 16px; padding: 28px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafafa; }
-  .upload-zone:hover { border-color: #007AFF; background: #f0f7ff; }
-  .upload-zone.has-file { border-color: #34C759; background: #f0fff4; }
-  .file-info { font-size: 12px; margin-top: 6px; }
-  @media (max-width: 640px) {
-    .card { padding: 20px 16px }
-    .param-card { padding: 16px }
-    .result-value { font-size: 26px }
-    .result-card { padding: 18px }
-  }
+  .radio-group { display:flex; gap:4px; background:#f5f5f7; border-radius:12px; padding:4px; }
+  .radio-option { flex:1; text-align:center; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600; font-size:14px; color:#86868b; transition:all .2s; user-select:none; }
+  .radio-option.active { background:#fff; color:#1a1a1a; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  .radio-option.pv { border:2px solid transparent; }.radio-option.pv.active { border-color:#e65100; }
+  .radio-option.wind { border:2px solid transparent; }.radio-option.wind.active { border-color:#1565c0; }
+  .upload-zone { border:2px dashed #d0d0d8; border-radius:16px; padding:28px; text-align:center; cursor:pointer; transition:all .2s; background:#fafafa; }
+  .upload-zone:hover { border-color:#007AFF; background:#f0f7ff; }
+  .upload-zone.has-file { border-color:#34C759; background:#f0fff4; }
+  .threshold-card { border-radius:12px; padding:10px 14px; font-size:12px; display:flex; align-items:center; gap:8px }
+  @media (max-width:640px) { .card{padding:20px 16px} .param-card{padding:16px} .result-value{font-size:26px} .result-card{padding:18px} }
 </style>
 </head>
 <body>
@@ -54,38 +49,30 @@
   <div class="text-center mb-8">
     <div class="text-5xl mb-3">🔋</div>
     <h1 class="text-3xl md:text-4xl font-extrabold text-[#1a1a1a] tracking-tight">储能配置倒算器</h1>
-    <p class="text-base md:text-lg text-[#86868b] mt-2 font-medium">从目标反推配置 · 前置判断 + 8760导入 · 双场景校验</p>
+    <p class="text-base md:text-lg text-[#86868b] mt-2 font-medium">三定量门槛 · 充放双维校验 · 8760逐时导入 · 光伏/风电</p>
     <div class="flex items-center justify-center gap-3 mt-3 text-xs text-[#a1a1a6]">
-      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">储能倒算法 v3</span>
-      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">光伏/风电二选一</span>
-      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">8760导入</span>
+      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">储能倒算法 v4</span>
+      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">上网≤20%·688号文</span>
+      <span class="px-3 py-1 bg-[#f5f5f7] rounded-full">充电容量派生</span>
     </div>
   </div>
 
-  <!-- ===== Source Type (must pick first) ===== -->
+  <!-- ===== Step 1: Source Type ===== -->
   <div class="card mb-6">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="text-2xl">⚡</span>
-      <div>
-        <h2 class="text-xl font-bold text-[#1a1a1a]">第一步：选择电源类型</h2>
-        <p class="text-sm text-[#86868b]">先选光伏或风电，再导入表格或填写参数</p>
-      </div>
-    </div>
+    <div class="flex items-center gap-3 mb-3"><span class="text-2xl">⚡</span><div><h2 class="text-xl font-bold text-[#1a1a1a]">第一步：选择电源类型</h2><p class="text-sm text-[#86868b]">先选光伏或风电，再导入表格或填写参数</p></div></div>
     <div class="radio-group max-w-sm mx-auto" id="sourceRadio">
       <div class="radio-option pv active" data-src="pv" onclick="switchSource('pv')">☀️ 光伏</div>
       <div class="radio-option wind" data-src="wind" onclick="switchSource('wind')">💨 风电</div>
     </div>
+    <div class="text-xs text-[#a1a1a6] mt-3 text-center" id="srcTypicalNote">
+      <span id="srcNotePv">☀️ 光伏典型日：午间大发4h、晚高峰零出力。缺口时段出力=0</span>
+      <span id="srcNoteWind" style="display:none">💨 风电典型日：午间出力≈峰值35%、晚高峰出力≈峰值70%（夜间大发）。缺口时段有风电支撑</span>
+    </div>
   </div>
 
-  <!-- ===== 8760 Upload ===== -->
+  <!-- ===== Step 2: 8760 Upload ===== -->
   <div class="card mb-6">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="text-2xl">📂</span>
-      <div>
-        <h2 class="text-xl font-bold text-[#1a1a1a]">第二步：导入 8760 时序数据 <span style="font-size:12px;font-weight:400;color:#a1a1a6">（可选）</span></h2>
-        <p class="text-sm text-[#86868b]">上传电源+负荷逐时匹配表（.xlsx），基于当前选中的电源类型解析。未上传则使用估算</p>
-      </div>
-    </div>
+    <div class="flex items-center gap-3 mb-3"><span class="text-2xl">📂</span><div><h2 class="text-xl font-bold text-[#1a1a1a]">第二步：导入 8760 时序数据 <span style="font-size:12px;font-weight:400;color:#a1a1a6">（可选）</span></h2><p class="text-sm text-[#86868b]">上传电源+负荷逐时匹配表（.xlsx），基于当前选中的电源类型解析。未上传则使用典型日估算</p></div></div>
     <label class="upload-zone" id="uploadZone" for="fileInput">
       <div id="uploadIcon"><span style="font-size:32px">📤</span></div>
       <p id="uploadText" class="text-sm text-[#86868b] mt-2">点击或拖拽上传 .xlsx 文件</p>
@@ -96,66 +83,51 @@
     <div class="text-center mt-3" id="applyBtnWrap" style="display:none">
       <button class="bg-[#007AFF] text-white border-none rounded-xl px-6 py-2 text-sm font-semibold cursor-pointer" onclick="applyImport()">✅ 填入参数并计算</button>
     </div>
-    <div class="text-center mt-2" id="skipUploadNote">
-      <span class="text-xs text-[#c7c7cc]">或直接填写下方参数开始计算 ↑</span>
-    </div>
+    <div class="text-center mt-2" id="skipUploadNote"><span class="text-xs text-[#c7c7cc]">或直接填写下方参数开始计算 ↑</span></div>
   </div>
 
-  <!-- ===== Input Section ===== -->
+  <!-- ===== Step 3: Parameters ===== -->
   <div class="card mb-6">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="text-2xl">📋</span>
-      <div><h2 class="text-xl font-bold text-[#1a1a1a]">第三步：参数输入</h2><p class="text-sm text-[#86868b]">上传表格后自动填入，也可手动填写</p></div>
-    </div>
+    <div class="flex items-center gap-3 mb-3"><span class="text-2xl">📋</span><div><h2 class="text-xl font-bold text-[#1a1a1a]">第三步：参数输入</h2><p class="text-sm text-[#86868b]">上传表格后自动填入，也可手动填写</p></div></div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-      <!-- 负荷（通用） -->
-      <div class="md:col-span-2 lg:col-span-3">
-        <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🏭</span><span class="text-sm font-bold text-[#1a1a1a]">负荷参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
-      </div>
-      <div class="param-card"><div class="input-group"><label>📊 园区最大负荷</label><input type="number" id="maxLoad" class="input-field" value="50000" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⚡ 日用电量</label><input type="number" id="dailyLoad" class="input-field" value="910000" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⏱️ 缺口持续时长</label><input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24"><div class="input-unit">单位：小时（电源不足、负荷仍高的连续时段）</div></div></div>
+      <!-- 负荷 -->
+      <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🏭</span><span class="text-sm font-bold text-[#1a1a1a]">负荷参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
+      <div class="param-card"><div class="input-group"><label>📊 园区最大负荷</label><input type="number" id="maxLoad" class="input-field" value="50000" step="100" min="0"><div class="input-unit">kW</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⚡ 日用电量</label><input type="number" id="dailyLoad" class="input-field" value="910000" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⏱️ 缺口持续时长</label><input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24"><div class="input-unit">小时（电源不足、负荷仍高的连续时段）</div></div></div>
 
       <!-- 光伏参数 -->
       <div id="pvParams">
-        <div class="md:col-span-2 lg:col-span-3">
-          <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">☀️</span><span class="text-sm font-bold text-[#1a1a1a]" style="color:#e65100">光伏参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
-        </div>
-        <div class="param-card"><div class="input-group"><label>☀️ 光伏日发电量</label><input type="number" id="pvDailyGen" class="input-field" value="440000" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🔆 光伏午间峰值出力</label><input type="number" id="pvPeakGen" class="input-field" value="25000" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌙 缺口时段电源出力</label><input type="number" id="pvGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW（光伏晚高峰为 0）</div></div></div>
+        <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">☀️</span><span class="text-sm font-bold" style="color:#e65100">光伏参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
+        <div class="param-card"><div class="input-group"><label>☀️ 日发电量</label><input type="number" id="pvDailyGen" class="input-field" value="440000" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🔆 午间峰值出力</label><input type="number" id="pvPeakGen" class="input-field" value="25000" step="100" min="0"><div class="input-unit">kW</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🌙 缺口时段出力</label><input type="number" id="pvGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（晚高峰光伏≈0）</div></div></div>
       </div>
 
       <!-- 风电参数 -->
       <div id="windParams" style="display:none">
-        <div class="md:col-span-2 lg:col-span-3">
-          <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">💨</span><span class="text-sm font-bold text-[#1a1a1a]" style="color:#1565c0">风电参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
-        </div>
-        <div class="param-card"><div class="input-group"><label>💨 风电日发电量</label><input type="number" id="windDailyGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kWh/天</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌬 风电峰值出力</label><input type="number" id="windPeakGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌙 缺口时段电源出力</label><input type="number" id="windGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">单位：kW（风电夜间可能仍有出力）</div></div></div>
+        <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">💨</span><span class="text-sm font-bold" style="color:#1565c0">风电参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
+        <div class="param-card"><div class="input-group"><label>💨 日发电量</label><input type="number" id="windDailyGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🌞 午间出力（≈峰值35%）</label><input type="number" id="windNoonGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（估算充电功率用）</div></div></div>
+        <div class="param-card"><div class="input-group"><label>🌙 晚高峰出力（≈峰值70%）</label><input type="number" id="windGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（风电夜间大发，缺口时段有支撑）</div></div></div>
       </div>
 
-      <!-- 目标与电价（通用） -->
-      <div class="md:col-span-2 lg:col-span-3">
-        <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🎯</span><span class="text-sm font-bold text-[#1a1a1a]">目标与电价</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
-      </div>
-      <div class="param-card"><div class="input-group"><label>📈 目标自发自用比例</label><input type="number" id="targetRatio" class="input-field" value="90" step="1" min="0" max="100"><div class="input-unit">单位：%</div></div></div>
-      <div class="param-card"><div class="input-group"><label>🔌 目标接网容量</label><input type="number" id="targetGrid" class="input-field" value="40000" step="100" min="0"><div class="input-unit">单位：kW</div></div></div>
-      <div class="param-card"><div class="input-group"><label>🔗 缺口时段电网兜底比例</label><input type="number" id="gridCoverage" class="input-field" value="0" step="5" min="0" max="100"><div class="input-unit">单位：%（0=储能全扛）</div></div></div>
+      <!-- 目标与电价 -->
+      <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🎯</span><span class="text-sm font-bold text-[#1a1a1a]">目标与电价</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
+      <div class="param-card"><div class="input-group"><label>📈 目标自发自用比例</label><input type="number" id="targetRatio" class="input-field" value="90" step="1" min="0" max="100"><div class="input-unit">%</div></div></div>
+      <div class="param-card"><div class="input-group"><label>🔌 目标接网容量</label><input type="number" id="targetGrid" class="input-field" value="40000" step="100" min="0"><div class="input-unit">kW</div></div></div>
+      <div class="param-card"><div class="input-group"><label>🔗 缺口时段电网兜底比例</label><input type="number" id="gridCoverage" class="input-field" value="0" step="5" min="0" max="100"><div class="input-unit">%（0=储能全扛）</div></div></div>
       <div class="param-card"><div class="input-group"><label>💵 大网综合电价</label><input type="number" id="gridPrice" class="input-field" value="0.60" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>🌱 绿电综合成本</label><input type="number" id="greenCost" class="input-field" value="0.36" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>📉 容量电价</label><input type="number" id="capPrice" class="input-field" value="51.9" step="0.1" min="0"><div class="input-unit">元/kW·月</div></div></div>
 
-      <!-- 储能参数（通用） -->
-      <div class="md:col-span-2 lg:col-span-3">
-        <div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🔋</span><span class="text-sm font-bold text-[#1a1a1a]">储能参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div>
-      </div>
+      <!-- 储能 -->
+      <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🔋</span><span class="text-sm font-bold text-[#1a1a1a]">储能参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
       <div class="param-card"><div class="input-group"><label>💰 储能单位成本</label><input type="number" id="storageCost" class="input-field" value="650" step="10" min="0"><div class="input-unit">元/kWh</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⬇️ 放电效率</label><input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100"><div class="input-unit">单位：%</div></div></div>
-      <div class="param-card"><div class="input-group"><label>🔋 可用 SOC 比例</label><input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100"><div class="input-unit">单位：%</div></div></div>
-      <div class="param-card"><div class="input-group"><label>📅 年运行天数</label><input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365"><div class="input-unit">单位：天/年</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⬇️ 放电效率</label><input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
+      <div class="param-card"><div class="input-group"><label>🔋 可用 SOC 比例</label><input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
+      <div class="param-card"><div class="input-group"><label>📅 年运行天数</label><input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365"><div class="input-unit">天/年</div></div></div>
 
     </div>
     <div class="text-center mt-6">
@@ -166,11 +138,11 @@
   <!-- Results -->
   <div id="results" style="display:none;">
 
-    <!-- Pre-condition -->
+    <!-- Pre-condition: Three-threshold -->
     <div class="card mb-6 text-center" id="preconditionCard">
-      <p class="text-sm text-[#86868b] font-medium">前置判断</p>
+      <p class="text-sm text-[#86868b] font-medium">前置判断 · 三定量门槛 <span class="badge-policy">650号文 / 688号文</span></p>
       <div id="verdictBadge" class="mt-2 mb-2"></div>
-      <p class="text-sm text-[#666]" id="verdictText"></p>
+      <div id="verdictText" class="text-xs text-[#666]"></div>
     </div>
 
     <!-- Recommendation -->
@@ -198,15 +170,15 @@
 
     <!-- Baseline -->
     <div class="card mb-6">
-      <div class="flex items-center gap-2 mb-1"><span class="text-xl">🔍</span><h2 class="text-lg font-bold text-[#1a1a1a]">无储能基准 <span class="badge-estimate">系统估算</span></h2></div>
-      <p class="text-sm text-[#86868b] mb-3">基于渗透率自动估算「不配储时的消纳情况」<span id="importNote"></span></p>
+      <div class="flex items-center gap-2 mb-1"><span class="text-xl">🔍</span><h2 class="text-lg font-bold text-[#1a1a1a]">无储能基准<span id="importNote"></span></h2></div>
+      <p class="text-sm text-[#86868b] mb-3" id="baselineSubtitle">不配储时的源荷匹配情况<span id="dataSourceNote"></span></p>
       <div id="baseline_content"></div>
     </div>
 
     <!-- Reverse calc steps -->
     <div class="card mb-6">
       <div class="flex items-center gap-2 mb-1"><span class="text-xl">📐</span><h2 class="text-lg font-bold text-[#1a1a1a]">倒算过程</h2></div>
-      <p class="text-sm text-[#86868b] mb-3">每一步公式与中间值</p>
+      <p class="text-sm text-[#86868b] mb-3">从三定量门槛到储能配置的完整推导</p>
       <div id="steps_content"></div>
     </div>
 
@@ -220,48 +192,39 @@
   <!-- Footer -->
   <div class="text-center mt-10 mb-6">
     <p class="text-xs text-[#c7c7cc] leading-relaxed">
-      王炸小纸条 · 储能配置倒算器 v3<br>
-      基于「储能倒算法」——从自发自用+接网容量双目标反推 · 容量仅考虑放电侧<br>
-      无储能基准为简化估算，正式测算建议使用 8760h 逐时数据 · 以上为个人学习工具，不构成投资建议
+      王炸小纸条 · 储能配置倒算器 v4<br>
+      三定量门槛（≥60% / ≥30% / ≤20%）依据 650 号文 + 688 号文 · 充电容量从上网超限部分派生<br>
+      以上为个人学习工具，不构成投资建议
     </p>
     <a href="../../index.html" class="text-xs text-[#007AFF] mt-2 inline-block hover:underline">← 返回工具箱首页</a>
   </div>
 </div>
 
 <script>
-// ===== GLOBAL STATE =====
 var currentSource = 'pv';
-var importData = null; // {dailyLoad, dailyGen, maxLoad, peakGen, gapGen, gapHours, selfGenRatio, selfLoadRatio, directConsumption, totalGen, totalLoad, sourceType}
+var importData = null;
 
-// ===== SOURCE SWITCH =====
 function switchSource(src) {
   currentSource = src;
   document.querySelectorAll('.radio-option').forEach(function(r){ r.classList.remove('active'); });
   document.querySelector('.radio-option.' + src).classList.add('active');
   document.getElementById('pvParams').style.display = src === 'pv' ? '' : 'none';
   document.getElementById('windParams').style.display = src === 'wind' ? '' : 'none';
+  document.getElementById('srcNotePv').style.display = src === 'pv' ? '' : 'none';
+  document.getElementById('srcNoteWind').style.display = src === 'wind' ? '' : 'none';
 }
 
-// ===== FORMATTERS =====
 function fmt(n) { return Number(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}) }
 function fmtMoney(n) { return Number(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}) }
 function fmt1(n) { return Number(n).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1}) }
 
-// ===== DIRECT CONSUMPTION ESTIMATE =====
 function estimateDirectRatio(penetration, src) {
   if (src === 'pv') {
-    if (penetration <= 0.30) return 0.92;
-    if (penetration <= 0.50) return 0.77;
-    if (penetration <= 0.80) return 0.60;
-    if (penetration <= 1.00) return 0.48;
-    return 0.35;
+    if (penetration <= 0.30) return 0.92; else if (penetration <= 0.50) return 0.77;
+    else if (penetration <= 0.80) return 0.60; else if (penetration <= 1.00) return 0.48; else return 0.35;
   }
-  // Wind: more variable, less matched
-  if (penetration <= 0.30) return 0.82;
-  if (penetration <= 0.50) return 0.65;
-  if (penetration <= 0.80) return 0.48;
-  if (penetration <= 1.00) return 0.38;
-  return 0.28;
+  if (penetration <= 0.30) return 0.82; else if (penetration <= 0.50) return 0.65;
+  else if (penetration <= 0.80) return 0.48; else if (penetration <= 1.00) return 0.38; else return 0.28;
 }
 
 // ===== 8760 FILE HANDLER =====
@@ -272,8 +235,7 @@ function handleFile(e) {
   reader.onload = function(ev) {
     try {
       var wb = XLSX.read(ev.target.result, {type:'array'});
-      var sn = wb.SheetNames[0];
-      var ws = wb.Sheets[sn];
+      var ws = wb.Sheets[wb.SheetNames[0]];
       var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
       if (rows.length < 3) throw new Error('表格行数过少');
       parse8760(rows);
@@ -286,126 +248,109 @@ function handleFile(e) {
 }
 
 function parse8760(rows) {
-  // Find header row: first row with date-like values
   var hdrIdx = 0;
   for (var i = 0; i < Math.min(5, rows.length); i++) {
-    var r = rows[i];
-    if (!r) continue;
+    var r = rows[i]; if (!r) continue;
     for (var j = 0; j < r.length; j++) {
-      if (r[j] && typeof r[j] === 'number' && r[j] > 40000 && r[j] < 60000) { hdrIdx = i; break; }
-      if (r[j] instanceof Date && !isNaN(r[j].getTime())) { hdrIdx = i; break; }
+      var v = r[j];
+      if (typeof v === 'string' && (v.indexOf('时间') >= 0 || v.indexOf('时') >= 0)) { hdrIdx = i; break; }
+      if (v instanceof Date && !isNaN(v.getTime())) { hdrIdx = i; break; }
+      if (typeof v === 'number' && v > 40000 && v < 60000) { hdrIdx = i; break; }
     }
     if (hdrIdx > 0) break;
-  }
-  // If still 0, try to find based on column names
-  if (hdrIdx === 0) {
-    for (var i = 0; i < Math.min(3, rows.length); i++) {
-      var r = rows[i];
-      var hasDate = false;
-      for (var j = 0; j < (r ? r.length : 0); j++) {
-        var v = r[j];
-        if (typeof v === 'string' && (v.indexOf('时间') >= 0 || v.indexOf('时') >= 0 || v.indexOf('date') >= 0 || v.indexOf('Date') >= 0)) hasDate = true;
-      }
-      if (hasDate) { hdrIdx = i; break; }
-    }
   }
 
   var headers = rows[hdrIdx] || [];
   var dataStart = hdrIdx + 1;
-
-  // Detect columns
   var colTime = -1, colLoad = -1, colGen = -1;
   for (var j = 0; j < headers.length; j++) {
     var h = String(headers[j] || '');
-    if (h.indexOf('时间') >= 0 || h.indexOf('时') >= 0 || h.indexOf('date') >= 0 || h.indexOf('Date') >= 0) colTime = j;
-    if (h.indexOf('负荷') >= 0 || h.indexOf('用电') >= 0 || h.indexOf('load') >= 0) colLoad = j;
-    if (h.indexOf('出力') >= 0 || h.indexOf('发电') >= 0 || h.indexOf('电源') >= 0 || h.indexOf('gen') >= 0 || h.indexOf('风电') >= 0 || h.indexOf('光伏') >= 0) colGen = j;
+    if (h.indexOf('时间') >= 0 || h.indexOf('时') >= 0) colTime = j;
+    if (h.indexOf('负荷') >= 0 || h.indexOf('用电') >= 0) colLoad = j;
+    if (h.indexOf('出力') >= 0 || h.indexOf('发电') >= 0 || h.indexOf('电源') >= 0 || h.indexOf('风电') >= 0 || h.indexOf('光伏') >= 0) colGen = j;
   }
-  // Fallback: if not found by header, use positional heuristic
   if (colLoad < 0 && headers.length >= 2) colLoad = 1;
   if (colGen < 0 && headers.length >= 3) colGen = 2;
   if (colTime < 0 && headers.length >= 1) colTime = 0;
+  if (colLoad < 0 || colGen < 0) throw new Error('未识别到负荷列和电源列。表头：' + headers.join(', '));
 
-  if (colLoad < 0 || colGen < 0) throw new Error('未识别到负荷列和电源列，请检查表头。检测到的列：' + headers.join(', '));
-
-  // Parse hourly data
-  var totalLoad = 0, totalGen = 0, directConsumption = 0;
+  var totalLoad = 0, totalGen = 0, directConsumption = 0, exported = 0;
   var maxLoadVal = 0, maxGenVal = 0;
   var count = 0;
-  var genIsNegative = false;
   var negCount = 0, posCount = 0;
+  // Wind specific: noon hours 11-15, peak hours 18-22
+  var windNoonTotal = 0, windNoonN = 0, windGapTotal = 0, windGapN = 0;
 
-  // First pass: detect sign convention
   for (var k = dataStart; k < rows.length && k < dataStart + 100; k++) {
-    var r = rows[k];
-    if (!r || r.length <= Math.max(colLoad, colGen)) continue;
-    var gv = parseFloat(r[colGen]);
-    if (!isNaN(gv)) {
-      if (gv < 0) negCount++;
-      else if (gv > 0) posCount++;
-    }
+    var r = rows[k]; if (!r || r.length <= Math.max(colLoad, colGen)) continue;
+    var gv = parseFloat(r[colGen]); if (!isNaN(gv)) { if (gv < 0) negCount++; else if (gv > 0) posCount++; }
   }
-  genIsNegative = negCount > posCount * 3; // At least 75% negative
+  var genIsNegative = negCount > posCount * 3;
 
-  // Second pass: accumulate
   for (var k = dataStart; k < rows.length; k++) {
-    var r = rows[k];
-    if (!r || r.length <= Math.max(colLoad, colGen)) continue;
-    var lv = parseFloat(r[colLoad]);
-    var gv = parseFloat(r[colGen]);
+    var r = rows[k]; if (!r || r.length <= Math.max(colLoad, colGen)) continue;
+    var dt = r[colTime];
+    var lv = parseFloat(r[colLoad]); var gv = parseFloat(r[colGen]);
     if (isNaN(lv) || isNaN(gv)) continue;
     var genAbs = genIsNegative ? Math.abs(gv) : gv;
-    totalLoad += lv;
-    totalGen += genAbs;
-    directConsumption += Math.min(lv, genAbs);
+    totalLoad += lv; totalGen += genAbs;
+    var self = Math.min(lv, genAbs);
+    directConsumption += self;
+    var exp = genAbs - self; if (exp > 0) exported += exp;
     if (lv > maxLoadVal) maxLoadVal = lv;
     if (genAbs > maxGenVal) maxGenVal = genAbs;
     count++;
+
+    // Wind typical day extraction if user selected wind
+    if (currentSource === 'wind' && dt) {
+      var h = -1;
+      if (dt instanceof Date) h = dt.getHours();
+      else if (typeof dt === 'number' && dt < 1) h = Math.floor(dt * 24);
+      if (h >= 0 && h < 24) {
+        if (h >= 11 && h <= 14) { windNoonTotal += genAbs; windNoonN++; }
+        if (h >= 18 && h <= 21) { windGapTotal += genAbs; windGapN++; }
+      }
+    }
   }
+  if (count < 100) throw new Error('有效数据行数不足（<100），找到 ' + count + ' 行');
 
-  if (count < 100) throw new Error('有效数据行数不足（<100），请检查表格。找到 ' + count + ' 行');
-
-  // Compute ratios
   var selfGenRatio = totalGen > 0 ? directConsumption / totalGen : 0;
   var selfLoadRatio = totalLoad > 0 ? directConsumption / totalLoad : 0;
+  var exportRatio = totalGen > 0 ? exported / totalGen : 0;
   var dailyLoadAvg = totalLoad / (count / 24);
   var dailyGenAvg = totalGen / (count / 24);
 
-  // Detect source type from user selection (NOT from column header)
   var detectedSource = currentSource;
+  var windNoonAvg = windNoonN > 0 ? windNoonTotal / windNoonN : 0;
+  var windGapAvg = windGapN > 0 ? windGapTotal / windGapN : 0;
 
   importData = {
-    dailyLoad: dailyLoadAvg,
-    dailyGen: dailyGenAvg,
-    maxLoad: maxLoadVal,
-    peakGen: maxGenVal,
-    genDuringGap: detectedSource === 'pv' ? 0 : maxGenVal * 0.3, // wind: estimate 30% during gap
-    gapHours: 4,
-    selfGenRatio: selfGenRatio,
-    selfLoadRatio: selfLoadRatio,
-    directConsumption: directConsumption,
-    totalGen: totalGen,
-    totalLoad: totalLoad,
-    hourCount: count,
-    sourceType: detectedSource,
-    genIsNegative: genIsNegative
+    dailyLoad: dailyLoadAvg, dailyGen: dailyGenAvg, maxLoad: maxLoadVal, peakGen: maxGenVal,
+    genDuringGap: detectedSource === 'pv' ? 0 : windGapAvg,
+    genNoon: detectedSource === 'pv' ? maxGenVal : windNoonAvg,
+    gapHours: detectedSource === 'pv' ? 4 : 4,
+    selfGenRatio: selfGenRatio, selfLoadRatio: selfLoadRatio, exportRatio: exportRatio,
+    directConsumption: directConsumption, totalGen: totalGen, totalLoad: totalLoad, exported: exported,
+    hourCount: count, sourceType: detectedSource, genIsNegative: genIsNegative
   };
 
-  // Show result
   var zone = document.getElementById('uploadZone');
   zone.classList.add('has-file');
   document.getElementById('uploadIcon').innerHTML = '<span style="font-size:32px">✅</span>';
-  document.getElementById('uploadText').innerHTML = '<b>解析成功</b> · ' + count + ' 小时数据 · ' + (genIsNegative ? '电源列为负值（已取绝对值）' : '电源列为正值') + ' · 基于已选<b>' + (detectedSource === 'pv' ? '光伏' : '风电') + '</b>类型解析';
+  document.getElementById('uploadText').innerHTML = '<b>解析成功</b> · ' + count + ' 小时 · ' + (genIsNegative ? '负值已取绝对值' : '正值') + ' · 已选<b>' + (detectedSource === 'pv' ? '光伏' : '风电') + '</b>';
+  if (detectedSource === 'wind') {
+    document.getElementById('uploadText').innerHTML += ' · 晚高峰均出力 <b>' + fmt(windGapAvg) + ' kW</b> · 午间均出力 <b>' + fmt(windNoonAvg) + ' kW</b>';
+  }
 
   document.getElementById('importResult').style.display = 'block';
   document.getElementById('importResult').innerHTML =
-    '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">年总发电量</p><p class="text-lg font-bold mt-1">' + fmt1(totalGen / 10000) + ' 万 kWh</p></div>' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">年总用电量</p><p class="text-lg font-bold mt-1">' + fmt1(totalLoad / 10000) + ' 万 kWh</p></div>' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用 ÷ 发电量</p><p class="text-lg font-bold mt-1 ' + (selfGenRatio >= 0.6 ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(selfGenRatio * 100) + '%</p></div>' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用 ÷ 用电量</p><p class="text-lg font-bold mt-1 ' + (selfLoadRatio >= 0.3 ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(selfLoadRatio * 100) + '%</p></div>' +
-    '</div>' +
-    '<div class="text-xs text-[#a1a1a6] mt-2">日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 峰值出力 ' + fmt(maxGenVal) + ' kW</div>';
+    '<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">年发电</p><p class="text-base font-bold mt-1">' + fmt1(totalGen/10000) + ' 万kWh</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">年用电</p><p class="text-base font-bold mt-1">' + fmt1(totalLoad/10000) + ' 万kWh</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷发电</p><p class="text-base font-bold mt-1 ' + (selfGenRatio>=0.6?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfGenRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥60%</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷用电</p><p class="text-base font-bold mt-1 ' + (selfLoadRatio>=0.3?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfLoadRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥30%</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-base font-bold mt-1 ' + (exportRatio<=0.2?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20%</p></div>' +
+    '</div><div class="text-xs text-[#a1a1a6] mt-2">日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 上网量 ' + fmt1(exported/10000) + ' 万kWh</div>';
 
   document.getElementById('applyBtnWrap').style.display = 'block';
   document.getElementById('skipUploadNote').style.display = 'none';
@@ -423,12 +368,17 @@ function applyImport() {
     document.getElementById('pvGapGen').value = Math.round(importData.genDuringGap);
   } else {
     document.getElementById('windDailyGen').value = Math.round(importData.dailyGen);
-    document.getElementById('windPeakGen').value = Math.round(importData.peakGen);
-    document.getElementById('windGapGen').value = Math.round(importData.genDuringGap);
+    document.getElementById('windNoonGen').value = Math.round(importData.genNoon || (importData.peakGen * 0.35));
+    document.getElementById('windGapGen').value = Math.round(importData.genDuringGap || (importData.peakGen * 0.7));
   }
   window._fromImport = true;
   window._importSelfGen = importData.selfGenRatio;
   window._importSelfLoad = importData.selfLoadRatio;
+  window._importExport = importData.exportRatio;
+  window._importTotalGen = importData.totalGen;
+  window._importTotalLoad = importData.totalLoad;
+  window._importDirectConsumption = importData.directConsumption;
+  window._importExported = importData.exported;
   doCalc();
 }
 
@@ -444,7 +394,7 @@ function doCalc() {
     genDuringGap = parseFloat(document.getElementById('pvGapGen').value) || 0;
   } else {
     dailyGen = parseFloat(document.getElementById('windDailyGen').value) || 0;
-    peakGen = parseFloat(document.getElementById('windPeakGen').value) || 0;
+    peakGen = parseFloat(document.getElementById('windNoonGen').value) || 0;
     genDuringGap = parseFloat(document.getElementById('windGapGen').value) || 0;
   }
   var targetRatio = parseFloat(document.getElementById('targetRatio').value) || 90;
@@ -458,54 +408,74 @@ function doCalc() {
   var usableSOC = (parseFloat(document.getElementById('usableSOC').value) || 90) / 100;
   var opDays = parseFloat(document.getElementById('opDays').value) || 300;
 
-  // === PRE-CONDITION: Direct consumption estimate ===
+  // === Three thresholds from policy ===
+  var TH_GEN = 0.60, TH_LOAD = 0.30, TH_EXPORT = 0.20;
+
+  // === Estimate or use imported ratios ===
   var penetration = dailyLoad > 0 ? dailyGen / dailyLoad : 0;
   var directRatio = estimateDirectRatio(penetration, currentSource);
   var directConsumption = dailyGen * directRatio;
   var surplusTotal = Math.max(0, dailyGen - directConsumption);
   var gridDraw = Math.max(0, dailyLoad - directConsumption);
+  var exported = surplusTotal;
   var selfGenRatio = dailyGen > 0 ? directConsumption / dailyGen : 0;
   var selfLoadRatio = dailyLoad > 0 ? directConsumption / dailyLoad : 0;
+  var exportRatio = dailyGen > 0 ? exported / dailyGen : 0;
 
-  // Use imported ratios if available
   var imported = window._fromImport;
   if (imported && window._importSelfGen !== undefined) {
     selfGenRatio = window._importSelfGen;
     selfLoadRatio = window._importSelfLoad;
-    directConsumption = dailyGen * selfGenRatio;
-    surplusTotal = Math.max(0, dailyGen - directConsumption);
-    gridDraw = Math.max(0, dailyLoad - directConsumption);
+    exportRatio = window._importExport;
+    directConsumption = window._importDirectConsumption;
+    exported = window._importExported;
+    surplusTotal = exported;
+    gridDraw = dailyLoad - directConsumption; if (gridDraw < 0) gridDraw = 0;
   }
 
-  var threshGen = 0.60, threshLoad = 0.30;
-  var needStorage = !(selfGenRatio >= threshGen && selfLoadRatio >= threshLoad);
-  if (dailyGen <= 0 || dailyLoad <= 0) needStorage = false;
+  // === Three-threshold pre-condition ===
+  var passedGen = selfGenRatio >= TH_GEN;
+  var passedLoad = selfLoadRatio >= TH_LOAD;
+  var passedExport = exportRatio <= TH_EXPORT;
+  var allPassed = passedGen && passedLoad && passedExport;
 
-  // === STEP 1: Capacity from self-consumption target (discharge side only) ===
+  // === STEP 1: Discharge capacity from self-consumption target ===
   var targetSelfConsumption = dailyGen * targetRatio / 100;
   var needMore = Math.max(0, targetSelfConsumption - directConsumption);
-  var capFromSelf = dischargeEffVal > 0 && usableSOC > 0 ? needMore / (dischargeEffVal * usableSOC) : 0;
+  var capFromDischarge = dischargeEffVal > 0 && usableSOC > 0 ? needMore / (dischargeEffVal * usableSOC) : 0;
 
-  // === STEP 2: Power from grid connection target ===
+  // === STEP 2: Discharge power from grid connection target ===
   var gapLoad = maxLoad - genDuringGap;
   var gapAboveTarget = gapLoad - targetGrid;
   var effectiveDischargePower = Math.max(0, gapAboveTarget * (1 - gridCoverage));
-  var capFromPeak = dischargeEffVal > 0 && usableSOC > 0 ? effectiveDischargePower * gapHours / (dischargeEffVal * usableSOC) : 0;
 
-  // === STEP 3: Charge power ===
-  var chargeWindow = 4; // 4-hour charge window for PV; for wind use 6
-  if (currentSource === 'wind') chargeWindow = 6;
+  // === STEP 3: Peak gap discharge capacity ===
+  var capFromPeak = dischargeEffVal > 0 && usableSOC > 0 ? effectiveDischargePower * gapHours / (dischargeEffVal * usableSOC) : 0;
+  var capDischarge = Math.max(capFromDischarge, capFromPeak);
+
+  // === STEP 4: Charge capacity from export excess ===
+  // exportRatio > 20% → excess energy can be stored
+  // excess = (exportRatio - TH_EXPORT) × dailyGen, daily, then → storage capacity
+  var exportExcessRatio = Math.max(0, exportRatio - TH_EXPORT);
+  var dailyExcess = exportExcessRatio * dailyGen;
+  // Charge capacity needed = dailyExcess / (dischargeEff * usableSOC) — same loss model
+  var capFromExport = dischargeEffVal > 0 && usableSOC > 0 ? dailyExcess / (dischargeEffVal * usableSOC) : 0;
+
+  // === STEP 5: Charge power ===
+  var chargeWindow = currentSource === 'pv' ? 4 : 6;
   var chargePowerNeeded = chargeWindow > 0 ? needMore / chargeWindow : 0;
 
-  // === STEP 4: Merge ===
+  // === STEP 6: Merge ===
+  // Power: max(charge, discharge)
   var storagePower = Math.max(chargePowerNeeded, effectiveDischargePower);
-  var storageCapacity = Math.max(capFromSelf, capFromPeak); // Discharge side only
+  // Capacity: max(discharge side, export-excess charge side)
+  var storageCapacity = Math.max(capDischarge, capFromExport);
 
   // Surplus check
   var surplusPowerAvailable = chargeWindow > 0 ? surplusTotal / chargeWindow : 0;
   var chargeConstrained = chargePowerNeeded > surplusPowerAvailable && needMore > 0;
 
-  // === STEP 5: Economics ===
+  // === STEP 7: Economics ===
   var annualSelfBenefit = needMore * (gridPrice - greenCost) * opDays;
   var capacityReduction = Math.max(0, maxLoad - targetGrid);
   var effectiveCapReduction = Math.min(capacityReduction, effectiveDischargePower);
@@ -521,32 +491,41 @@ function doCalc() {
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
 
-  // Import note
-  document.getElementById('importNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 来自8760导入</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">📐 系统估算</span>';
+  // Data source note
+  document.getElementById('importNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760导入</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">📐 典型日估算</span>';
+  document.getElementById('dataSourceNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">逐时实测</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">系统估算</span>';
 
   // Pre-condition
+  var allPassedLabel = '';
   if (dailyGen <= 0) {
     document.getElementById('verdictBadge').innerHTML = '<span class="badge-skip">⚪ 请填写发电量</span>';
-    document.getElementById('verdictText').textContent = '未检测到电源发电量数据';
-  } else if (!needStorage) {
-    document.getElementById('verdictBadge').innerHTML = '<span class="badge-skip">⏭️ 可能不需要储能</span>';
-    document.getElementById('verdictText').innerHTML = '自发自用÷发电量 = <b>' + fmt1(selfGenRatio * 100) + '%</b>（阈值 60%），自发自用÷用电量 = <b>' + fmt1(selfLoadRatio * 100) + '%</b>（阈值 30%）。两项均达标，配储效益可能有限。下方可继续计算作为参考。';
+    document.getElementById('verdictText').innerHTML = '';
+  } else if (allPassed) {
+    document.getElementById('verdictBadge').innerHTML = '<span class="badge-skip">⏭️ 三项指标均达标，可能不需要储能</span>';
   } else {
-    document.getElementById('verdictBadge').innerHTML = '<span class="badge-go">✅ 建议评估储能</span>';
-    document.getElementById('verdictText').innerHTML = '自发自用÷发电量 = <b>' + fmt1(selfGenRatio * 100) + '%</b>（阈值 60%），自发自用÷用电量 = <b>' + fmt1(selfLoadRatio * 100) + '%</b>（阈值 30%）。存在源荷错配，储能可能有价值。';
+    document.getElementById('verdictBadge').innerHTML = '<span class="badge-go">✅ 存在不达标项，建议评估储能</span>';
   }
+
+  document.getElementById('verdictText').innerHTML =
+    '<div class="grid grid-cols-3 gap-2 mt-2 max-w-md mx-auto" style="font-size:11px">' +
+      '<div class="threshold-card ' + (passedGen ? 'bg-[#e8f5e9]' : 'bg-[#fff5f5]') + '"><span>' + (passedGen ? '✅' : '❌') + '</span><span>自发自用÷发电 <b>' + fmt1(selfGenRatio*100) + '%</b>（需≥' + fmt1(TH_GEN*100) + '%）</span></div>' +
+      '<div class="threshold-card ' + (passedLoad ? 'bg-[#e8f5e9]' : 'bg-[#fff5f5]') + '"><span>' + (passedLoad ? '✅' : '❌') + '</span><span>自发自用÷用电 <b>' + fmt1(selfLoadRatio*100) + '%</b>（需≥' + fmt1(TH_LOAD*100) + '%）</span></div>' +
+      '<div class="threshold-card ' + (passedExport ? 'bg-[#e8f5e9]' : 'bg-[#fff5f5]') + '"><span>' + (passedExport ? '✅' : '❌') + '</span><span>上网÷发电 <b>' + fmt1(exportRatio*100) + '%</b>（需≤' + fmt1(TH_EXPORT*100) + '%）</span></div>' +
+    '</div>' +
+    '<div class="text-xs text-[#a1a1a6] mt-2">三定量门槛依据：650 号文 ≥60%/≥30% + 688 号文 ≤20%</div>';
 
   // Recommendation
   var powerMW = (storagePower / 1000).toFixed(1);
   var capacityMWh = (storageCapacity / 1000).toFixed(0);
   document.getElementById('recConfig').textContent = powerMW + ' MW / ' + capacityMWh + ' MWh';
   var recParts = [];
-  if (needMore > 0) recParts.push('每日搬移 <b>' + fmt(needMore) + ' kWh</b>');
-  if (effectiveDischargePower > 0) recParts.push('峰值顶 <b>' + fmt(effectiveDischargePower) + ' kW</b>');
+  if (needMore > 0) recParts.push('搬移 <b>' + fmt(needMore) + ' kWh/天</b>');
+  if (effectiveDischargePower > 0) recParts.push('顶缺口 <b>' + fmt(effectiveDischargePower) + ' kW</b>');
+  if (capFromExport > capDischarge) recParts.push('充电容量由上网超限 ' + fmt1(dailyExcess/1000) + ' MWh/天 主导 ⚠️');
   if (recParts.length === 0) recParts.push('自发自用已达标');
   document.getElementById('recDesc').innerHTML = recParts.join(' · ');
 
-  // Economics
+  // Economics cards
   document.getElementById('result_with').textContent = paybackWith === Infinity ? '无法回收' : paybackWith.toFixed(1) + ' 年回本';
   document.getElementById('result_without').textContent = paybackWithout === Infinity ? '无法回收' : paybackWithout.toFixed(1) + ' 年回本';
 
@@ -568,83 +547,97 @@ function doCalc() {
   var penLevel = penetration <= 0.3 ? '低渗透' : penetration <= 0.6 ? '中等渗透' : penetration <= 0.9 ? '较高渗透' : '高渗透';
   var srcLabel = currentSource === 'pv' ? '光伏' : '风电';
   document.getElementById('baseline_content').innerHTML =
-    '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">渗透率（' + srcLabel + '）</p><p class="text-lg font-bold mt-1">' + fmt1(penetration * 100) + '%</p><p class="text-xs text-[#a1a1a6]">' + penLevel + '</p></div>' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">' + (imported ? '8760实测' : '估算') + '直接消纳率</p><p class="text-lg font-bold mt-1">' + fmt1(selfGenRatio * 100) + '%' + (imported ? '' : ' <span class="badge-estimate">估</span>') + '</p><p class="text-xs text-[#a1a1a6]">发电被负荷直接吃掉</p></div>' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷发电量</p><p class="text-lg font-bold mt-1 ' + (selfGenRatio >= threshGen ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(selfGenRatio * 100) + '%</p><p class="text-xs text-[#a1a1a6]">阈值 ' + fmt1(threshGen * 100) + '%</p></div>' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷用电量</p><p class="text-lg font-bold mt-1 ' + (selfLoadRatio >= threshLoad ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(selfLoadRatio * 100) + '%</p><p class="text-xs text-[#a1a1a6]">阈值 ' + fmt1(threshLoad * 100) + '%</p></div>' +
+    '<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">渗透率</p><p class="text-lg font-bold mt-1">' + fmt1(penetration*100) + '%</p><p class="text-xs text-[#a1a1a6]">' + penLevel + '</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷发电</p><p class="text-lg font-bold mt-1 ' + (passedGen?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfGenRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥60% ' + (passedGen?'✅':'❌') + '</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷用电</p><p class="text-lg font-bold mt-1 ' + (passedLoad?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfLoadRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥30% ' + (passedLoad?'✅':'❌') + '</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-lg font-bold mt-1 ' + (passedExport?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20% ' + (passedExport?'✅':'❌') + '</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">直接消纳</p><p class="text-lg font-bold mt-1">' + fmt(directConsumption) + '</p><p class="text-xs text-[#a1a1a6]">kWh/天</p></div>' +
     '</div>' +
     '<div class="grid grid-cols-3 gap-3 mt-3">' +
-      '<div class="bg-[#f5f5f7] rounded-xl p-2 text-center"><p class="text-xs text-[#86868b]">直接消纳</p><p class="font-bold">' + fmt(directConsumption) + ' kWh</p></div>' +
       '<div class="bg-[#f5f5f7] rounded-xl p-2 text-center"><p class="text-xs text-[#86868b]">富余（可搬移）</p><p class="font-bold text-[#e65100]">' + fmt(surplusTotal) + ' kWh</p></div>' +
       '<div class="bg-[#f5f5f7] rounded-xl p-2 text-center"><p class="text-xs text-[#86868b]">仍需下网</p><p class="font-bold">' + fmt(gridDraw) + ' kWh</p></div>' +
+      '<div class="bg-[#f5f5f7] rounded-xl p-2 text-center"><p class="text-xs text-[#86868b]">上网电量' + (imported?'（实测）':'（估）') + '</p><p class="font-bold ' + (passedExport?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt(exported) + ' kWh</p></div>' +
     '</div>';
 
   // Steps
   var stepsHTML = '<div style="font-size:13px;line-height:1.8">';
 
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">⓪</span><div><b>前置判断</b><br>';
-  stepsHTML += '电源类型：<b>' + srcLabel + '</b>' + (imported ? '（8760 导入）' : '（手动输入）') + '<br>';
-  stepsHTML += '渗透率 = ' + fmt(dailyGen) + ' ÷ ' + fmt(dailyLoad) + ' = <b>' + fmt1(penetration * 100) + '%</b><br>';
-  stepsHTML += '直接消纳率 = <b>' + fmt1(selfGenRatio * 100) + '%</b>（' + (imported ? '8760 逐时计算' : '经验估算') + '）<br>';
-  stepsHTML += '自发自用÷发电 = <b>' + fmt1(selfGenRatio * 100) + '%</b> vs 60% | 自发自用÷用电 = <b>' + fmt1(selfLoadRatio * 100) + '%</b> vs 30%<br>';
-  stepsHTML += '→ ' + (needStorage ? '<b class="text-[#e65100]">建议评估储能</b>' : '<b class="text-[#2e7d32]">可能不需要储能</b>');
+  stepsHTML += '<span class="text-lg">⓪</span><div><b>三定量门槛判断</b> <span class="badge-policy" style="font-size:10px">650号文+688号文</span><br>';
+  stepsHTML += '电源类型：<b>' + srcLabel + '</b>' + (imported ? '（8760逐时）' : '（估算）') + '<br>';
+  stepsHTML += '① 自发自用÷发电 = <b>' + fmt1(selfGenRatio*100) + '%</b> vs 需≥60% → ' + (passedGen ? '<span style="color:#2e7d32">✅</span>' : '<span style="color:#c62828">❌</span>') + '<br>';
+  stepsHTML += '② 自发自用÷用电 = <b>' + fmt1(selfLoadRatio*100) + '%</b> vs 需≥30% → ' + (passedLoad ? '<span style="color:#2e7d32">✅</span>' : '<span style="color:#c62828">❌</span>') + '<br>';
+  stepsHTML += '③ 上网÷发电 = <b>' + fmt1(exportRatio*100) + '%</b> vs 需≤20% → ' + (passedExport ? '<span style="color:#2e7d32">✅</span>' : '<span style="color:#c62828">❌</span>') + '<br>';
+  stepsHTML += '→ ' + (allPassed ? '<b style="color:#2e7d32">三项全部达标，可能不需要储能</b>' : '<b style="color:#e65100">存在不达标项，储能可帮助达标</b>');
   stepsHTML += '</div></div>';
 
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">①</span><div><b>从自发自用目标倒算容量（放电侧）</b><br>';
+  stepsHTML += '<span class="text-lg">①</span><div><b>放电容量：从自发自用目标倒算</b><br>';
   stepsHTML += '目标自发自用 = ' + fmt(dailyGen) + ' × ' + targetRatio + '% = <b>' + fmt(targetSelfConsumption) + ' kWh/天</b><br>';
   stepsHTML += '需新增 = ' + fmt(targetSelfConsumption) + ' - ' + fmt(directConsumption) + ' = <b>' + fmt(needMore) + ' kWh/天</b><br>';
-  stepsHTML += '储能名义容量 = ' + fmt(needMore) + ' ÷ ' + fmt1(dischargeEffVal * 100) + '% ÷ ' + fmt1(usableSOC * 100) + '% = <b>' + fmt(capFromSelf) + ' kWh</b> (' + (capFromSelf/1000).toFixed(0) + ' MWh)<br>';
-  stepsHTML += '<span class="text-xs text-[#a1a1a6]">仅考虑放电侧容量（新能源大发充不下可返送大网，充电容量不构成瓶颈）</span>';
+  stepsHTML += '放电侧容量 = ' + fmt(needMore) + ' ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromDischarge) + ' kWh</b> (' + (capFromDischarge/1000).toFixed(0) + ' MWh)<br>';
+  stepsHTML += '缺口侧容量 = ' + fmt(effectiveDischargePower) + 'kW × ' + gapHours + 'h ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromPeak) + ' kWh</b><br>';
+  stepsHTML += '放电容量汇总 = max(' + fmt(capFromDischarge) + ', ' + fmt(capFromPeak) + ') = <b>' + fmt(capDischarge) + ' kWh</b>';
   stepsHTML += '</div></div>';
 
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">②</span><div><b>从接网容量目标倒算功率</b><br>';
-  stepsHTML += '缺口时段电源出力 = <b>' + fmt(genDuringGap) + ' kW</b>（' + srcLabel + '在缺口时段出力）<br>';
-  stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' - ' + fmt(genDuringGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
-  stepsHTML += '缺口超目标 = ' + fmt(gapLoad) + ' - ' + fmt(targetGrid) + ' = ' + fmt(gapAboveTarget) + ' kW<br>';
-  stepsHTML += '电网兜底 ' + fmt1(gridCoverage * 100) + '% → 储能实需放电 = ' + fmt(gapAboveTarget) + ' × ' + fmt1((1 - gridCoverage) * 100) + '% = <b>' + fmt(effectiveDischargePower) + ' kW</b><br>';
-  stepsHTML += '缺口持续 ' + gapHours + ' h → 放电量 = ' + fmt(effectiveDischargePower * gapHours) + ' kWh<br>';
-  stepsHTML += '缺口侧容量 = ' + fmt(effectiveDischargePower * gapHours) + ' ÷ ' + fmt1(dischargeEffVal * 100) + '% ÷ ' + fmt1(usableSOC * 100) + '% = <b>' + fmt(capFromPeak) + ' kWh</b>';
+  stepsHTML += '<span class="text-lg">②</span><div><b>充电容量：从上网超限部分派生 <span class="badge-policy" style="font-size:10px">688号文 ≤20%</span></b><br>';
+  stepsHTML += '上网比例 = <b>' + fmt1(exportRatio*100) + '%</b>，超限 = ' + fmt1(exportRatio*100) + '% - 20% = <b>' + fmt1(exportExcessRatio*100) + '%</b><br>';
+  stepsHTML += '日均超量 = ' + fmt1(exportExcessRatio*100) + '% × ' + fmt(dailyGen) + ' = <b>' + fmt(dailyExcess) + ' kWh/天</b><br>';
+  stepsHTML += '充电侧容量 = ' + fmt(dailyExcess) + ' ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromExport) + ' kWh</b> (' + (capFromExport/1000).toFixed(0) + ' MWh)<br>';
+  if (exportExcessRatio <= 0) stepsHTML += '<span class="text-xs text-[#2e7d32]">上网未超 20%，无充电容量派生需求</span>';
   stepsHTML += '</div></div>';
 
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">③</span><div><b>充电功率</b><br>';
-  stepsHTML += '充电窗口 = <b>' + chargeWindow + ' h</b>（' + srcLabel + '富余时段）<br>';
-  stepsHTML += '充电功率 = ' + fmt(needMore) + ' kWh ÷ ' + chargeWindow + ' h = <b>' + fmt(chargePowerNeeded) + ' kW</b><br>';
-  stepsHTML += '充电窗口可用富余 ≈ ' + fmt(surplusPowerAvailable) + ' kW';
-  if (chargeConstrained) stepsHTML += ' <span class="text-xs text-[#c62828]">⚠️ 富余不足</span>';
+  stepsHTML += '<span class="text-lg">③</span><div><b>放电功率</b><br>';
+  stepsHTML += '缺口时段电源出力 = <b>' + fmt(genDuringGap) + ' kW</b>（' + srcLabel + '）<br>';
+  stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' - ' + fmt(genDuringGap) + ' = ' + fmt(gapLoad) + ' kW<br>';
+  stepsHTML += '储能实需放电 = (' + fmt(gapLoad) + ' - ' + fmt(targetGrid) + ') × ' + fmt1((1-gridCoverage)*100) + '% = <b>' + fmt(effectiveDischargePower) + ' kW</b>';
+  stepsHTML += '</div></div>';
+
+  stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">④</span><div><b>充电功率</b><br>';
+  stepsHTML += '充电窗口 = <b>' + chargeWindow + ' h</b><br>';
+  stepsHTML += '充电功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + ' = <b>' + fmt(chargePowerNeeded) + ' kW</b>';
+  if (chargeConstrained) stepsHTML += ' <span class="text-xs text-[#c62828]">⚠️ 富余不足 ' + fmt(surplusPowerAvailable) + ' < ' + fmt(chargePowerNeeded) + ' kW</span>';
   stepsHTML += '</div></div>';
 
   stepsHTML += '<div class="flex items-start gap-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">④</span><div><b>合并</b><br>';
-  stepsHTML += '功率 = max(充电 ' + fmt(chargePowerNeeded) + ', 放电 ' + fmt(effectiveDischargePower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower / 1000).toFixed(1) + ' MW)<br>';
-  stepsHTML += '容量 = max(自发自用侧 ' + fmt(capFromSelf) + ', 峰值缺口侧 ' + fmt(capFromPeak) + ') = <b>' + fmt(storageCapacity) + ' kWh</b> (' + (storageCapacity / 1000).toFixed(0) + ' MWh)<br>';
+  stepsHTML += '<span class="text-lg">⑤</span><div><b>合并</b><br>';
+  stepsHTML += '功率 = max(充电 ' + fmt(chargePowerNeeded) + ', 放电 ' + fmt(effectiveDischargePower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
+  stepsHTML += '容量 = max(放电 ' + fmt(capDischarge) + ', 充电 ' + fmt(capFromExport) + ') = <b>' + fmt(storageCapacity) + ' kWh</b> (' + (storageCapacity/1000).toFixed(0) + ' MWh)<br>';
+  if (capFromExport > capDischarge) stepsHTML += '<span class="text-xs text-[#e65100]">⚠️ 充电容量（上网超限派生）' + (storageCapacity/1000).toFixed(0) + ' MWh ＞ 放电容量 ' + (capDischarge/1000).toFixed(0) + ' MWh，取充电侧</span><br>';
+  if (capFromExport > 0) {
+    var chargeHoursDerived = storageCapacity / Math.max(1, chargePowerNeeded);
+    stepsHTML += '<span class="text-xs text-[#a1a1a6]">→ 充电小时数 ≈ ' + fmt(storageCapacity) + ' kWh ÷ ' + fmt(chargePowerNeeded) + ' kW = <b>' + fmt1(chargeHoursDerived) + ' h</b></span><br>';
+  }
   stepsHTML += '→ <b>推荐配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh</b><br>';
-  stepsHTML += '→ 储能投资 ≈ ' + fmt(storageCapacity) + ' × ' + storageCost + ' = <b>¥ ' + fmtMoney(investment) + '</b>';
+  stepsHTML += '→ 储能投资 ≈ ¥ ' + fmtMoney(investment);
   stepsHTML += '</div></div>';
   stepsHTML += '</div>';
   document.getElementById('steps_content').innerHTML = stepsHTML;
 
   // Detail table
   var capRedPct = annualNetWith > 0 ? (annualCapBenefit / Math.max(1, annualSelfBenefit + annualCapBenefit) * 100).toFixed(0) : 0;
+  var capSource = capFromExport > capDischarge ? '上网超限（充电侧）' : '自发自用/缺口（放电侧）';
   document.getElementById('detail_table').innerHTML =
     '<div class="table-wrap" style="overflow-x:auto;font-size:13px">' +
     '<table class="w-full" style="border-collapse:collapse;min-width:360px">' +
     '<tr><th class="p-2 text-left font-semibold" style="background:#f5f5f7;font-size:12px">项目</th><th class="p-2 text-center font-semibold" style="background:#e8f5e9;font-size:12px">含容量压降</th><th class="p-2 text-center font-semibold" style="background:#fff3e0;font-size:12px">不含容量压降</th></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">储能配置</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + powerMW + ' MW / ' + capacityMWh + ' MWh</td></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">放电功率 / 充电功率</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(effectiveDischargePower) + ' / ' + fmt(chargePowerNeeded) + ' kW</td></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">新增自发自用电量</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">年自发自用收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">容量压降</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(effectiveCapReduction) + ' kW</td><td class="p-2 text-center" style="font-size:12px;color:#999">不被认可</td></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">年容量压降收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualCapBenefit) + ' (' + capRedPct + '%)</td><td class="p-2 text-center" style="font-size:12px;color:#999">—</td></tr>' +
-    '<tr style="border-bottom:1px solid #f0f0f0"><td class="p-2" style="font-size:12px">年运维成本</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">储能配置</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + powerMW + ' MW / ' + capacityMWh + ' MWh</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">容量主导来源</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + capSource + '</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">放电容量 / 充电容量</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(capDischarge) + ' / ' + fmt(capFromExport) + ' kWh</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">充电功率 / 放电功率</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(chargePowerNeeded) + ' / ' + fmt(effectiveDischargePower) + ' kW</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">新增自发自用电量</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">年自发自用收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">容量压降</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(effectiveCapReduction) + ' kW</td><td class="p-2 text-center" style="font-size:12px;color:#999">不被认可</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">年容量压降收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualCapBenefit) + ' (' + capRedPct + '%)</td><td class="p-2 text-center" style="font-size:12px;color:#999">—</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">年运维成本</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td></tr>' +
     '<tr><td class="p-2 font-bold" style="font-size:13px">静态回收期</td><td class="p-2 text-center font-mono font-bold" style="font-size:13px;color:#2e7d32">' + (paybackWith === Infinity ? '无法回收' : paybackWith.toFixed(1) + ' 年') + '</td><td class="p-2 text-center font-mono font-bold" style="font-size:13px;color:#e65100">' + (paybackWithout === Infinity ? '无法回收' : paybackWithout.toFixed(1) + ' 年') + '</td></tr>' +
     '</table></div>' +
-    (chargeConstrained ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 充电富余不足：可用富余功率约 ' + fmt(surplusPowerAvailable) + ' kW < 充电需求 ' + fmt(chargePowerNeeded) + ' kW。</div>' : '') +
-    (effectiveCapReduction < capacityReduction && capacityReduction > 0 ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 容量压降受储能放电功率限制。</div>' : '') +
+    (chargeConstrained ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 充电富余不足：可用 ' + fmt(surplusPowerAvailable) + ' kW < 需求 ' + fmt(chargePowerNeeded) + ' kW</div>' : '') +
+    (exportExcessRatio > 0 && capFromExport > capDischarge ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 上网超限 ' + fmt1(exportRatio*100) + '% ＞ 20%，充电容量由上网超限部分主导。扣除 20% 允许上网量后，日均需充电 ' + fmt(dailyExcess) + ' kWh</div>' : '') +
     (paybackWith !== Infinity && paybackWith > 8 ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 回收期 > 8 年，经济性一般。</div>' : '');
 
   window._fromImport = false;

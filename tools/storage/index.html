@@ -82,6 +82,7 @@
     <div id="importResult" style="display:none;margin-top:12px"></div>
     <div class="text-center mt-3" id="applyBtnWrap" style="display:none">
       <button class="bg-[#007AFF] text-white border-none rounded-xl px-6 py-2 text-sm font-semibold cursor-pointer" onclick="applyImport()">✅ 填入参数并计算</button>
+      <button class="bg-transparent text-[#86868b] border border-[#e5e5ea] rounded-xl px-4 py-2 text-xs cursor-pointer ml-2" onclick="clearImport()">✕ 清除导入</button>
     </div>
     <div class="text-center mt-2" id="skipUploadNote"><span class="text-xs text-[#c7c7cc]">或直接填写下方参数开始计算 ↑</span></div>
   </div>
@@ -202,7 +203,8 @@
 
 <script>
 var currentSource = 'pv';
-var importData = null;
+var importData = null;         // raw 8760 parse result (used by applyImport to fill inputs)
+var _8760data = null;          // persistent: ratios from 8760 → used every doCalc() call
 
 function switchSource(src) {
   currentSource = src;
@@ -231,6 +233,7 @@ function estimateDirectRatio(penetration, src) {
 function handleFile(e) {
   var f = e.target.files[0];
   if (!f) return;
+  _8760data = null; // clear previous import on new upload
   var reader = new FileReader();
   reader.onload = function(ev) {
     try {
@@ -403,12 +406,28 @@ function parse8760(rows) {
   document.getElementById('skipUploadNote').style.display = 'none';
 }
 
+function clearImport() {
+  _8760data = null;
+  importData = null;
+  var zone = document.getElementById('uploadZone');
+  zone.classList.remove('has-file');
+  document.getElementById('uploadIcon').innerHTML = '<span style="font-size:32px">📤</span>';
+  document.getElementById('uploadText').innerHTML = '点击或拖拽上传 .xlsx 文件';
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('applyBtnWrap').style.display = 'none';
+  document.getElementById('skipUploadNote').style.display = 'block';
+  document.getElementById('fileInput').value = '';
+}
+
 function applyImport() {
   if (!importData) return;
   switchSource(importData.sourceType);
+
+  // Fill all input fields from import data (user can still edit)
   document.getElementById('dailyLoad').value = Math.round(importData.dailyLoad);
   document.getElementById('maxLoad').value = Math.round(importData.maxLoad);
   document.getElementById('gapHours').value = importData.gapHours;
+
   if (importData.sourceType === 'pv') {
     document.getElementById('pvDailyGen').value = Math.round(importData.dailyGen);
     document.getElementById('pvPeakGen').value = Math.round(importData.peakGen);
@@ -418,14 +437,16 @@ function applyImport() {
     document.getElementById('windNoonGen').value = Math.round(importData.genNoon || (importData.peakGen * 0.35));
     document.getElementById('windGapGen').value = Math.round(importData.genDuringGap || (importData.peakGen * 0.7));
   }
-  window._fromImport = true;
-  window._importSelfGen = importData.selfGenRatio;
-  window._importSelfLoad = importData.selfLoadRatio;
-  window._importExport = importData.exportRatio;
-  window._importTotalGen = importData.totalGen;
-  window._importTotalLoad = importData.totalLoad;
-  window._importDirectConsumption = importData.directConsumption;
-  window._importExported = importData.exported;
+
+  // Save persistent 8760 data (ratios only — daily values come from input fields)
+  _8760data = {
+    selfGenRatio: importData.selfGenRatio,
+    selfLoadRatio: importData.selfLoadRatio,
+    exportRatio: importData.exportRatio,
+    sourceType: importData.sourceType,
+    hasImport: true
+  };
+
   doCalc();
 }
 
@@ -458,27 +479,30 @@ function doCalc() {
   // === Three thresholds from policy ===
   var TH_GEN = 0.60, TH_LOAD = 0.30, TH_EXPORT = 0.20;
 
-  // === Estimate or use imported ratios ===
+  // === Estimate or use imported 8760 ratios ===
   var penetration = dailyLoad > 0 ? dailyGen / dailyLoad : 0;
   var directRatio = estimateDirectRatio(penetration, currentSource);
   var directConsumption = dailyGen * directRatio;
+  var selfGenRatio = dailyGen > 0 ? directConsumption / dailyGen : 0;
+  var selfLoadRatio = dailyLoad > 0 ? directConsumption / dailyLoad : 0;
+  var exportRatio = dailyGen > 0 ? (dailyGen - directConsumption) / dailyGen : 0;
   var surplusTotal = Math.max(0, dailyGen - directConsumption);
   var gridDraw = Math.max(0, dailyLoad - directConsumption);
   var exported = surplusTotal;
-  var selfGenRatio = dailyGen > 0 ? directConsumption / dailyGen : 0;
-  var selfLoadRatio = dailyLoad > 0 ? directConsumption / dailyLoad : 0;
-  var exportRatio = dailyGen > 0 ? exported / dailyGen : 0;
 
-  var imported = window._fromImport;
-  if (imported && window._importSelfGen !== undefined) {
-    selfGenRatio = window._importSelfGen;
-    selfLoadRatio = window._importSelfLoad;
-    exportRatio = window._importExport;
-    directConsumption = window._importDirectConsumption;
-    exported = window._importExported;
+  // Override with 8760 imported ratios (persistent across re-calculations)
+  if (_8760data && _8760data.hasImport) {
+    selfGenRatio = _8760data.selfGenRatio;
+    selfLoadRatio = _8760data.selfLoadRatio;
+    exportRatio = _8760data.exportRatio;
+    // Recompute daily values from ratios (consistent unit: daily)
+    directConsumption = selfGenRatio * dailyGen;
+    exported = exportRatio * dailyGen;
     surplusTotal = exported;
-    gridDraw = dailyLoad - directConsumption; if (gridDraw < 0) gridDraw = 0;
+    gridDraw = Math.max(0, dailyLoad - directConsumption);
   }
+
+  var imported = _8760data && _8760data.hasImport;
 
   // === Three-threshold pre-condition ===
   var passedGen = selfGenRatio >= TH_GEN;
@@ -687,7 +711,6 @@ function doCalc() {
     (exportExcessRatio > 0 && capFromExport > capDischarge ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 上网超限 ' + fmt1(exportRatio*100) + '% ＞ 20%，充电容量由上网超限部分主导。扣除 20% 允许上网量后，日均需充电 ' + fmt(dailyExcess) + ' kWh</div>' : '') +
     (paybackWith !== Infinity && paybackWith > 8 ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 回收期 > 8 年，经济性一般。</div>' : '');
 
-  window._fromImport = false;
 }
 </script>
 </body>

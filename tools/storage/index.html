@@ -570,12 +570,24 @@ function doCalc() {
   var storageCapacity = Math.min(storageCapacityRaw, storagePower * maxStorageH);
   var capacityIsCapped = storageCapacity < storageCapacityRaw;
 
-  // How much energy CAN we absorb (capped) vs how much NEEDS to be absorbed
-  var absorbableDaily = storageCapacity * dischargeEffVal * usableSOC;  // kWh/day we can actually discharge
-  var curtailNeeded = Math.max(0, dailyExcess - absorbableDaily);        // must curtail this much daily
-  var curtailRatio = dailyGen > 0 ? curtailNeeded / dailyGen : 0;       // as fraction of total generation
-  var residualExport = exportRatio * dailyGen - absorbableDaily;         // after storage absorbs what it can
-  var cappedExportRatio = dailyGen > 0 ? Math.max(0, residualExport) / dailyGen : 0;
+  // How much can the storage actually process each day?
+  // Charge side: storage takes storageCapacity from surplus (before roundtrip losses)
+  var chargedFromSurplus = storageCapacity;                                    // kWh: storage absorbs this much FROM surplus
+  // Discharge side: what actually reaches the load after roundtrip
+  var dischargedToLoad = storageCapacity * dischargeEffVal * usableSOC;         // kWh: reaches LOAD
+
+  // Post-storage export: original export MINUS what storage charges from surplus
+  var postStorageExport = Math.max(0, exportRatio * dailyGen - chargedFromSurplus);
+  var postStorageExportRatio = dailyGen > 0 ? postStorageExport / dailyGen : 0;
+
+  // Post-storage self-consumption: original direct + what storage discharges to load
+  var postStorageSelfConsumption = directConsumption + dischargedToLoad;
+  var postStorageSelfGenRatio = dailyGen > 0 ? postStorageSelfConsumption / dailyGen : 0;
+
+  // How much is still above 20% after storage, i.e. must be curtailed (not stored, not self-used)
+  var allowExportEnergy = TH_EXPORT * dailyGen;
+  var mustCurtailBeyondExport = Math.max(0, postStorageExport - allowExportEnergy);
+  var mustCurtailRatio = dailyGen > 0 ? mustCurtailBeyondExport / dailyGen : 0;
 
   // Surplus check
   var surplusPowerAvailable = chargeWindow > 0 ? surplusTotal / chargeWindow : 0;
@@ -600,8 +612,8 @@ function doCalc() {
       var powerMW = (storagePower / 1000).toFixed(1);
       var rawMWh = (storageCapacityRaw / 1000).toFixed(0);
       var cappedMWh = (storageCapacity / 1000).toFixed(0);
-      var curtailKWhPerDay = fmt(curtailNeeded);
-      var curtailPct = fmt1(curtailRatio * 100);
+      var curtailKWhPerDay = fmt(mustCurtailBeyondExport);
+      var curtailPct = fmt1(mustCurtailRatio * 100);
 
       document.getElementById('results').style.display = 'block';
       document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
@@ -631,7 +643,7 @@ function doCalc() {
       html += '<div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">';
       html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">日均需弃电</p><p class="text-2xl font-bold mt-1 text-[#c62828]">' + curtailKWhPerDay + ' kWh</p><p class="text-xs text-[#888]">发电量 ' + fmt(dailyGen) + ' kWh</p></div>';
       html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">弃电比例</p><p class="text-2xl font-bold mt-1 text-[#c62828]">' + curtailPct + '%</p><p class="text-xs text-[#888]">占日发电量</p></div>';
-      html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">弃电后上网率</p><p class="text-2xl font-bold mt-1 ' + (cappedExportRatio <= 0.2 ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(cappedExportRatio*100) + '%</p><p class="text-xs text-[#888]">' + (cappedExportRatio <= 0.2 ? '≤20% ✅' : '仍需>20%') + '</p></div>';
+      html += '<div class="bg-[#fff5f5] rounded-xl p-3 text-center"><p class="text-xs text-[#c62828]">储能后上网率</p><p class="text-2xl font-bold mt-1 ' + (postStorageExportRatio <= 0.2 ? 'text-[#2e7d32]' : 'text-[#e65100]') + '">' + fmt1(postStorageExportRatio*100) + '%</p><p class="text-xs text-[#888]">' + (postStorageExportRatio <= 0.2 ? '≤20% ✅' : '仍需>20%') + '</p></div>';
       html += '</div>';
 
       // Suggestions
@@ -640,7 +652,7 @@ function doCalc() {
       html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">①</span><span><b>接受弃电</b>：允许 ' + srcLabel + ' 部分发电量不上网也不消纳，将上网率重新设为 ≤20% 的目标值但仍接受实际弃电量。这在实际项目中是常规做法。</span></div>';
       html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">②</span><span><b>降低自发自用目标</b>：将目标自发自用比例从 ' + targetRatio + '% 下调，减少需搬移电量，从而降低储能容量需求。</span></div>';
       html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">③</span><span><b>放宽上网比例阈值</b>：查看当地省级能源主管部门是否允许超过 20%（688 号文规定"具体比例可由各省级能源主管部门结合实际确定"）。</span></div>';
-      var adjustedTarget = targetRatio - Math.ceil((curtailRatio * 100) / 2);
+      var adjustedTarget = targetRatio - Math.ceil((mustCurtailRatio * 100) / 2);
       html += '<div class="flex items-start gap-2 mb-2"><span style="font-size:16px">④</span><span><b>尝试调参</b>：建议将目标自发自用比例调至 <b>' + Math.max(60, adjustedTarget) + '%</b> 左右，或手动调大储能时长上限重新测试。</span></div>';
       html += '</div>';
 
@@ -666,8 +678,9 @@ function doCalc() {
   dbg.push('peakGen=' + fmt(peakGen) + ' | genDuringGap=' + fmt(genDuringGap) + ' | gapHours=' + gapHours);
   dbg.push('selfGenRatio=' + fmt1(selfGenRatio*100) + '% selfLoadRatio=' + fmt1(selfLoadRatio*100) + '% exportRatio=' + fmt1(exportRatio*100) + '%');
   dbg.push('directConsump=' + fmt(directConsumption) + ' | needMore=' + fmt(needMore) + ' | exportExcess%=' + fmt1(exportExcessRatio*100) + '% | dailyExcess=' + fmt(dailyExcess));
-  dbg.push('capDischarge=' + fmt(capDischarge) + ' | capPeak=' + fmt(capFromPeak) + ' | capExport=' + fmt(capFromExport) + ' | → ' + fmt(storageCapacity) + ' kWh');
-  dbg.push('effDiscPower=' + fmt(effectiveDischargePower) + ' | chargePower=' + fmt(chargePowerNeeded) + ' | → ' + fmt(storagePower) + ' kW');
+  dbg.push('capDischarge=' + fmt(capDischarge) + ' | capPeak=' + fmt(capFromPeak) + ' | capExport=' + fmt(capFromExport) + ' | raw=' + fmt(storageCapacityRaw) + ' | capped=' + fmt(storageCapacity));
+  dbg.push('effDiscPower=' + fmt(effectiveDischargePower) + ' | chargePower=' + fmt(chargePowerNeeded) + ' | power=' + fmt(storagePower) + 'kW | hours=' + (storagePower>0?(storageCapacity/storagePower).toFixed(1):'0'));
+  dbg.push('postStorage: export ' + fmt1(exportRatio*100) + '%→' + fmt1(postStorageExportRatio*100) + '% | selfGen ' + fmt1(selfGenRatio*100) + '%→' + fmt1(postStorageSelfGenRatio*100) + '% | mustCurtail ' + fmt(mustCurtailBeyondExport) + 'kWh/d (' + fmt1(mustCurtailRatio*100) + '%)');
   dbg.push('has8760data=' + (imported ? 'YES' : 'NO') + ' | source=' + currentSource + ' | allPassed=' + allPassed);
   console.log('DEBUG:\n' + dbg.join('\n'));
 
@@ -717,8 +730,8 @@ function doCalc() {
   // Show storage hours
   var storageHours = storagePower > 0 ? (storageCapacity / storagePower).toFixed(1) : '0';
   recParts.push('储能时长 <b>' + storageHours + ' h</b>' + (capacityIsCapped ? ' ⚠️达上限' : ''));
-  if (capacityIsCapped && cappedExportRatio > TH_EXPORT) {
-    recParts.push('受限于 ' + maxStorageH + 'h 上限，上网率从 ' + fmt1(exportRatio*100) + '% 降至 ' + fmt1(cappedExportRatio*100) + '%（仍 > 20%）');
+  if (capacityIsCapped && postStorageExportRatio > TH_EXPORT) {
+    recParts.push('受' + maxStorageH + 'h上限：上网率 ' + fmt1(exportRatio*100) + '% → <b>' + fmt1(postStorageExportRatio*100) + '%</b>' + (postStorageExportRatio <= TH_EXPORT ? ' ✅' : ' 仍>20%'));
   }
   document.getElementById('recDesc').innerHTML = recParts.join(' · ');
 
@@ -761,11 +774,12 @@ function doCalc() {
 
   // === Post-cap and payback warnings ===
   var warnHtml = '';
-  if (capacityIsCapped && cappedExportRatio > TH_EXPORT) {
+  if (capacityIsCapped && postStorageExportRatio > TH_EXPORT) {
     warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#fff3e0;border:1px solid #ffe082;line-height:1.8;color:#8d6e00">' +
       '<b>⚠️ 储能已达时长上限 (' + maxStorageH + ' h)</b>，无法完全压平倒送电量。<br>' +
-      '上网率从 <b>' + fmt1(exportRatio*100) + '%</b> → <b>' + fmt1(cappedExportRatio*100) + '%</b>（仍超过 20% 门槛）。<br>' +
-      '💡 建议：① 放宽上网电量预期（可接受弃光/弃风） ② 降低目标自发自用比例 ③ 调大储能时长上限（但经济性会变差）</div>';
+      '上网率从 <b>' + fmt1(exportRatio*100) + '%</b> → <b>' + fmt1(postStorageExportRatio*100) + '%</b><br>' +
+      '自发自用率从 <b>' + fmt1(selfGenRatio*100) + '%</b> → <b>' + fmt1(postStorageSelfGenRatio*100) + '%</b>（目标 ' + targetRatio + '%）<br>' +
+      '💡 建议：① 接受部分弃电（少发不用） ② 降低自发自用目标 ③ 放宽上网比例</div>';
   }
   if (paybackWith !== Infinity && paybackWith > 8) {
     warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#fff5f5;border:1px solid #ffcdd2;line-height:1.8;color:#c62828">' +
@@ -854,7 +868,9 @@ function doCalc() {
   if (capacityIsCapped) {
     stepsHTML += '容量（受 ' + maxStorageH + 'h 上限） = min(' + fmt(storageCapacityRaw) + ', ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h) = <b>' + fmt(storageCapacity) + ' kWh</b> <span style="color:#c62828">⚠️ 削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh</span><br>';
     stepsHTML += '→ 受限后可消纳上网量 = ' + fmt(storageCapacity) + ' × ' + fmt1(dischargeEffVal*100) + '% × ' + fmt1(usableSOC*100) + '% = <b>' + fmt(storageCapacity * dischargeEffVal * usableSOC) + ' kWh/天</b><br>';
-    stepsHTML += '→ 受限后上网率 ≈ <b>' + fmt1(cappedExportRatio*100) + '%</b>（原始 ' + fmt1(exportRatio*100) + '%）<br>';
+    stepsHTML += '→ 储能后上网率 = ' + fmt1(exportRatio*100) + '% × ' + fmt(dailyGen) + ' - ' + fmt(chargedFromSurplus) + ' = <b>' + fmt(postStorageExport) + ' kWh → <b>' + fmt1(postStorageExportRatio*100) + '%</b>（原始 ' + fmt1(exportRatio*100) + '%）<br>';
+    stepsHTML += '→ 储能后自发自用率 = ' + fmt1(selfGenRatio*100) + '% + ' + fmt1(dischargedToLoad/dailyGen*100) + '% = <b>' + fmt1(postStorageSelfGenRatio*100) + '%</b>（目标 ' + targetRatio + '%）<br>';
+    stepsHTML += '→ 仍需弃电（上网仍超 20%） = max(0, ' + fmt(postStorageExport) + ' - ' + fmt(allowExportEnergy) + ') = <b>' + fmt(mustCurtailBeyondExport) + ' kWh/天</b>（' + fmt1(mustCurtailRatio*100) + '%）';
   }
   if (capFromExport > capDischarge) stepsHTML += '<span class="text-xs text-[#e65100]">⚠️ 充电容量（上网超限派生）主导需求</span><br>';
   stepsHTML += '→ <b>最终配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）</b><br>';

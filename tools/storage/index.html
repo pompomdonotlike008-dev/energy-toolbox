@@ -692,7 +692,55 @@ function doCalc() {
 
       html += '</div>';
 
-      html += '</div>'; // close card
+      html += '</div>'; // close card (suggestions + calc trace)
+
+      // === Economics (computed with capped capacity) ===
+      var ecoInvestment = storageCapacity * storageCost;
+      var ecoOM = ecoInvestment * 0.01;
+      var ecoSelfBenefit = needMore * (gridPrice - greenCost) * opDays;
+      var ecoCapReduction = Math.min(Math.max(0, maxLoad - targetGrid), effectiveDischargePower);
+      var ecoCapBenefit = ecoCapReduction * capPrice * 12;
+      var ecoWith = ecoSelfBenefit + ecoCapBenefit - ecoOM;
+      var ecoWithout = ecoSelfBenefit - ecoOM;
+      var pbWith = ecoWith > 0 ? ecoInvestment / ecoWith : Infinity;
+      var pbWithout = ecoWithout > 0 ? ecoInvestment / ecoWithout : Infinity;
+
+      html += '<div style="margin-bottom:12px;background:#fff;border-radius:20px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">';
+      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">💰 若按 ' + maxStorageH + 'h 上限配储，经济性测算</h2>';
+      html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">';
+      // With-cap card
+      html += '<div class="result-card" style="background:#e8f5e9">';
+      html += '<div class="flex items-center gap-2 mb-1"><span>✅</span><span class="section-badge" style="background:rgba(46,125,50,0.12);color:#2e7d32">含容量压降</span></div>';
+      html += '<p class="text-xs text-[#666] mb-1">接网容量压降被电网认可</p>';
+      html += '<div class="result-value text-[#2e7d32] mb-3">' + (pbWith === Infinity ? '无法回收' : pbWith.toFixed(1) + ' 年回本') + '</div>';
+      html += '<div class="text-sm text-[#555]">';
+      html += '<div class="result-item"><span>年自发自用收益</span><span class="font-mono">¥ ' + fmtMoney(ecoSelfBenefit) + '</span></div>';
+      html += '<div class="result-item"><span>年容量压降收益</span><span class="font-mono">¥ ' + fmtMoney(ecoCapBenefit) + '</span></div>';
+      html += '<div class="result-item"><span>年运维成本</span><span class="font-mono text-[#c62828]">− ¥ ' + fmtMoney(ecoOM) + '</span></div>';
+      html += '<div class="result-item font-bold"><span>年净收益</span><span class="font-mono text-[#2e7d32]">¥ ' + fmtMoney(ecoWith) + '</span></div>';
+      html += '<div class="result-item"><span>储能总投资</span><span class="font-mono">¥ ' + fmtMoney(ecoInvestment) + '</span></div>';
+      html += '<hr class="my-1 border-[#c8e6c9]"><div class="result-item font-bold"><span>静态回收期</span><span class="font-mono text-[#2e7d32]">' + (pbWith === Infinity ? '∞' : pbWith.toFixed(1) + ' 年') + '</span></div>';
+      html += '</div></div>';
+      // Without-cap card
+      html += '<div class="result-card" style="background:#fff3e0">';
+      html += '<div class="flex items-center gap-2 mb-1"><span>⚠️</span><span class="section-badge" style="background:rgba(230,81,0,0.12);color:#e65100">不含容量压降</span></div>';
+      html += '<p class="text-xs text-[#666] mb-1">仅靠自发自用收益</p>';
+      html += '<div class="result-value text-[#e65100] mb-3">' + (pbWithout === Infinity ? '无法回收' : pbWithout.toFixed(1) + ' 年回本') + '</div>';
+      html += '<div class="text-sm text-[#555]">';
+      html += '<div class="result-item"><span>年自发自用收益</span><span class="font-mono">¥ ' + fmtMoney(ecoSelfBenefit) + '</span></div>';
+      html += '<div class="result-item"><span>年运维成本</span><span class="font-mono text-[#c62828]">− ¥ ' + fmtMoney(ecoOM) + '</span></div>';
+      html += '<div class="result-item font-bold"><span>年净收益</span><span class="font-mono text-[#e65100]">¥ ' + fmtMoney(ecoWithout) + '</span></div>';
+      html += '<div class="result-item"><span>储能总投资</span><span class="font-mono">¥ ' + fmtMoney(ecoInvestment) + '</span></div>';
+      html += '<hr class="my-1 border-[#ffe0b2]"><div class="result-item font-bold"><span>静态回收期</span><span class="font-mono text-[#e65100]">' + (pbWithout === Infinity ? '∞' : pbWithout.toFixed(1) + ' 年') + '</span></div>';
+      html += '</div></div>';
+      html += '</div>';
+      html += '<div style="font-size:12px;line-height:1.8;color:#888">';
+      html += '<b>回收期推导：</b>投资 ¥' + fmtMoney(ecoInvestment) + ' = ' + (storageCapacity/1000).toFixed(0) + ' MWh × ' + storageCost + ' 元/kWh<br>';
+      html += '年收益 = ' + fmt(needMore) + ' × (' + gridPrice + ' − ' + greenCost + ') × ' + opDays + ' = ¥' + fmtMoney(ecoSelfBenefit) + '（自发自用）';
+      if (ecoCapReduction > 0) html += ' + ' + fmt(ecoCapReduction) + ' kW × ' + capPrice + ' × 12 = ¥' + fmtMoney(ecoCapBenefit) + '（压降）';
+      html += '<br>回收期 = ¥' + fmtMoney(ecoInvestment) + ' ÷ (¥' + fmtMoney(ecoSelfBenefit) + (ecoCapReduction > 0 ? ' + ¥' + fmtMoney(ecoCapBenefit) : '') + ' − ¥' + fmtMoney(ecoOM) + ')';
+      html += '</div>';
+      html += '</div>';
 
       // Action
       html += '<div class="text-center mt-4 mb-6">';

@@ -560,6 +560,28 @@ function doCalc() {
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
 
+  // === DEBUG TRACE ===
+  var dbg = [];
+  dbg.push('dailyGen=' + fmt(dailyGen) + ' | dailyLoad=' + fmt(dailyLoad) + ' | maxLoad=' + fmt(maxLoad));
+  dbg.push('peakGen=' + fmt(peakGen) + ' | genDuringGap=' + fmt(genDuringGap) + ' | gapHours=' + gapHours);
+  dbg.push('selfGenRatio=' + fmt1(selfGenRatio*100) + '% selfLoadRatio=' + fmt1(selfLoadRatio*100) + '% exportRatio=' + fmt1(exportRatio*100) + '%');
+  dbg.push('directConsump=' + fmt(directConsumption) + ' | needMore=' + fmt(needMore) + ' | exportExcess%=' + fmt1(exportExcessRatio*100) + '% | dailyExcess=' + fmt(dailyExcess));
+  dbg.push('capDischarge=' + fmt(capDischarge) + ' | capPeak=' + fmt(capFromPeak) + ' | capExport=' + fmt(capFromExport) + ' | → ' + fmt(storageCapacity) + ' kWh');
+  dbg.push('effDiscPower=' + fmt(effectiveDischargePower) + ' | chargePower=' + fmt(chargePowerNeeded) + ' | → ' + fmt(storagePower) + ' kW');
+  dbg.push('has8760data=' + (imported ? 'YES' : 'NO') + ' | source=' + currentSource + ' | allPassed=' + allPassed);
+  console.log('DEBUG:\n' + dbg.join('\n'));
+
+  // Visual debug panel in results
+  var debugPanel = document.getElementById('debugPanel');
+  if (!debugPanel) {
+    debugPanel = document.createElement('div');
+    debugPanel.id = 'debugPanel';
+    debugPanel.style.cssText = 'margin:8px 0;padding:10px 14px;background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;font-size:12px;font-family:monospace;line-height:1.6;color:#c62828;max-width:100%;overflow-x:auto';
+    var resultsDiv = document.getElementById('results');
+    resultsDiv.insertBefore(debugPanel, resultsDiv.firstChild);
+  }
+  debugPanel.innerHTML = '<b>🔍 计算过程追踪</b><br>' + dbg.join('<br>');
+
   // Data source note
   document.getElementById('importNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760导入</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">📐 典型日估算</span>';
   document.getElementById('dataSourceNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">逐时实测</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">系统估算</span>';

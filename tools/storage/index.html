@@ -366,9 +366,17 @@ function parse8760(rows) {
   var dailyLoadAvg = totalLoad / (count / 24);
   var dailyGenAvg = totalGen / (count / 24);
 
+  // === Unit detection: if data is in MW scale (< 1000), convert to kW/kWh ===
+  var unitScale = (maxLoadVal > 0 && maxLoadVal < 1000) ? 1000 : 1;
+  if (unitScale > 1) {
+    totalLoad *= unitScale; totalGen *= unitScale; directConsumption *= unitScale; exported *= unitScale;
+    maxLoadVal *= unitScale; maxGenVal *= unitScale;
+    dailyLoadAvg *= unitScale; dailyGenAvg *= unitScale;
+  }
+
   var detectedSource = currentSource;
-  var windNoonAvg = windNoonN > 0 ? windNoonTotal / windNoonN : 0;
-  var windGapAvg = windGapN > 0 ? windGapTotal / windGapN : 0;
+  var windNoonAvg = (windNoonN > 0 ? windNoonTotal / windNoonN : 0) * unitScale;
+  var windGapAvg = (windGapN > 0 ? windGapTotal / windGapN : 0) * unitScale;
 
   importData = {
     dailyLoad: dailyLoadAvg, dailyGen: dailyGenAvg, maxLoad: maxLoadVal, peakGen: maxGenVal,
@@ -425,6 +433,12 @@ function applyImport() {
   document.getElementById('dailyLoad').value = Math.round(importData.dailyLoad);
   document.getElementById('maxLoad').value = Math.round(importData.maxLoad);
   document.getElementById('gapHours').value = importData.gapHours;
+  // Auto-set targetGrid to ~80% of maxLoad if default (40000) is far off
+  var existingTargetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
+  var suggestedGrid = Math.round(importData.maxLoad * 0.8);
+  if (existingTargetGrid === 40000 || existingTargetGrid > importData.maxLoad * 3) {
+    document.getElementById('targetGrid').value = suggestedGrid;
+  }
 
   if (importData.sourceType === 'pv') {
     document.getElementById('pvDailyGen').value = Math.round(importData.dailyGen);

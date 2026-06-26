@@ -80,10 +80,6 @@
       <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
     </label>
     <div id="importResult" style="display:none;margin-top:12px"></div>
-    <div class="text-center mt-3" id="applyBtnWrap" style="display:none">
-      <button class="bg-[#007AFF] text-white border-none rounded-xl px-6 py-2 text-sm font-semibold cursor-pointer" onclick="applyImport()">✅ 填入参数并计算</button>
-      <button class="bg-transparent text-[#86868b] border border-[#e5e5ea] rounded-xl px-4 py-2 text-xs cursor-pointer ml-2" onclick="clearImport()">✕ 清除导入</button>
-    </div>
     <div class="text-center mt-2" id="skipUploadNote"><span class="text-xs text-[#c7c7cc]">或直接填写下方参数开始计算 ↑</span></div>
   </div>
 
@@ -387,7 +383,8 @@ function parse8760(rows) {
   var zone = document.getElementById('uploadZone');
   zone.classList.add('has-file');
   document.getElementById('uploadIcon').innerHTML = '<span style="font-size:32px">✅</span>';
-  document.getElementById('uploadText').innerHTML = '<b>解析成功</b> · ' + count + ' 小时 · ' + (genIsNegative ? '负值已取绝对值' : '正值') + ' · 已选<b>' + (detectedSource === 'pv' ? '光伏' : '风电') + '</b>';
+  var dSrc = detectedSource === 'pv' ? '光伏' : '风电';
+  document.getElementById('uploadText').innerHTML = '<b>解析成功</b> · ' + count + ' 小时 · ' + (genIsNegative ? '负值自动取绝对值' : '正值') + ' · ' + dSrc;
   if (detectedSource === 'wind') {
     document.getElementById('uploadText').innerHTML += ' · 晚高峰均出力 <b>' + fmt(windGapAvg) + ' kW</b> · 午间均出力 <b>' + fmt(windNoonAvg) + ' kW</b>';
   }
@@ -400,10 +397,12 @@ function parse8760(rows) {
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷发电</p><p class="text-base font-bold mt-1 ' + (selfGenRatio>=0.6?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfGenRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥60%</p></div>' +
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷用电</p><p class="text-base font-bold mt-1 ' + (selfLoadRatio>=0.3?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfLoadRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥30%</p></div>' +
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-base font-bold mt-1 ' + (exportRatio<=0.2?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20%</p></div>' +
-    '</div><div class="text-xs text-[#a1a1a6] mt-2">日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 上网量 ' + fmt1(exported/10000) + ' 万kWh</div>';
+    '</div>' +
+    '<div class="text-xs text-[#a1a1a6] mt-2">✅ 已自动填入典型日参数并触发计算 · 日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 上网量 ' + fmt1(exported/10000) + ' 万kWh<br>下方参数可手动修改后再点「开始倒算」</div>';
 
-  document.getElementById('applyBtnWrap').style.display = 'block';
+  // Auto-fill and auto-calc
   document.getElementById('skipUploadNote').style.display = 'none';
+  applyImport();
 }
 
 function clearImport() {
@@ -414,7 +413,6 @@ function clearImport() {
   document.getElementById('uploadIcon').innerHTML = '<span style="font-size:32px">📤</span>';
   document.getElementById('uploadText').innerHTML = '点击或拖拽上传 .xlsx 文件';
   document.getElementById('importResult').style.display = 'none';
-  document.getElementById('applyBtnWrap').style.display = 'none';
   document.getElementById('skipUploadNote').style.display = 'block';
   document.getElementById('fileInput').value = '';
 }

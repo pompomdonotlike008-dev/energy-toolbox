@@ -85,7 +85,7 @@
 
   <!-- ===== Step 3: Parameters ===== -->
   <div class="card mb-6">
-    <div class="flex items-center gap-3 mb-3"><span class="text-2xl">📋</span><div><h2 class="text-xl font-bold text-[#1a1a1a]">第三步：参数输入</h2><p class="text-sm text-[#86868b]">上传表格后自动填入，也可手动填写</p></div></div>
+    <div class="flex items-center gap-3 mb-3"><span class="text-2xl">📋</span><div><h2 class="text-xl font-bold text-[#1a1a1a]">第三步：参数输入 <span id="paramSrcBadge"></span></h2><p class="text-sm text-[#86868b]">上传表格后自动填入全年均值作为典型日，也可手动修改</p></div></div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
       <!-- 负荷 -->
@@ -124,6 +124,7 @@
       <div class="param-card"><div class="input-group"><label>💰 储能单位成本</label><input type="number" id="storageCost" class="input-field" value="650" step="10" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>⬇️ 放电效率</label><input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔋 可用 SOC 比例</label><input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⏱️ 储能时长上限</label><input type="number" id="maxStorageHours" class="input-field" value="4" step="0.5" min="0.5" max="24"><div class="input-unit">小时（充电/放电时长硬约束，防止过度配储；光伏推荐 2-4h）</div></div></div>
       <div class="param-card"><div class="input-group"><label>📅 年运行天数</label><input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365"><div class="input-unit">天/年</div></div></div>
 
     </div>
@@ -421,6 +422,7 @@ function clearImport() {
   document.getElementById('uploadIcon').innerHTML = '<span style="font-size:32px">📤</span>';
   document.getElementById('uploadText').innerHTML = '点击或拖拽上传 .xlsx 文件';
   document.getElementById('importResult').style.display = 'none';
+  document.getElementById('paramSrcBadge').innerHTML = ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">📐 手动输入</span>';
   document.getElementById('skipUploadNote').style.display = 'block';
   document.getElementById('fileInput').value = '';
 }
@@ -455,6 +457,9 @@ function applyImport() {
     document.getElementById('windNoonGen').value = Math.round(importData.genNoon || (importData.peakGen * 0.35));
     document.getElementById('windGapGen').value = Math.round(importData.genDuringGap || (importData.peakGen * 0.7));
   }
+
+  // Update data source badge
+  document.getElementById('paramSrcBadge').innerHTML = ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760全年均值</span>';
 
   // Save persistent 8760 data (ratios only — daily values come from input fields)
   _8760data = {
@@ -492,6 +497,7 @@ function doCalc() {
   var storageCost = parseFloat(document.getElementById('storageCost').value) || 650;
   var dischargeEffVal = (parseFloat(document.getElementById('dischargeEff').value) || 95) / 100;
   var usableSOC = (parseFloat(document.getElementById('usableSOC').value) || 90) / 100;
+  var maxStorageH = parseFloat(document.getElementById('maxStorageHours').value) || 4;
   var opDays = parseFloat(document.getElementById('opDays').value) || 300;
 
   // === Three thresholds from policy ===
@@ -554,11 +560,24 @@ function doCalc() {
   var chargeWindow = currentSource === 'pv' ? 4 : 6;
   var chargePowerNeeded = chargeWindow > 0 ? needMore / chargeWindow : 0;
 
-  // === STEP 6: Merge ===
+  // === STEP 6: Merge and apply hard cap ===
   // Power: max(charge, discharge)
   var storagePower = Math.max(chargePowerNeeded, effectiveDischargePower);
-  // Capacity: max(discharge side, export-excess charge side)
-  var storageCapacity = Math.max(capDischarge, capFromExport);
+  // Capacity: max(discharge side, export-excess charge side), then capped by storage hours
+  var storageCapacityRaw = Math.max(capDischarge, capFromExport);
+  var storageCapacityCapped = Math.min(storageCapacityRaw, storagePower * maxStorageH);
+  var capacityIsCapped = storageCapacityCapped < storageCapacityRaw;
+  var storageCapacity = storageCapacityCapped;
+
+  // Post-cap: how much export remains?
+  var cappedExportRatio = exportRatio;
+  if (capacityIsCapped && capFromExport > capDischarge) {
+    // The cap limits how much export we can absorb
+    var absorbedByStorage = storageCapacity * dischargeEffVal * usableSOC; // daily kWh dischargeable
+    var remainingExport = Math.max(0, dailyExcess - absorbedByStorage);
+    cappedExportRatio = dailyGen > 0 ? (exportRatio * dailyGen - absorbedByStorage + TH_EXPORT * dailyGen) / dailyGen : exportRatio;
+    cappedExportRatio = Math.min(exportRatio, Math.max(0, cappedExportRatio));
+  }
 
   // Surplus check
   var surplusPowerAvailable = chargeWindow > 0 ? surplusTotal / chargeWindow : 0;
@@ -634,6 +653,12 @@ function doCalc() {
   if (effectiveDischargePower > 0) recParts.push('顶缺口 <b>' + fmt(effectiveDischargePower) + ' kW</b>');
   if (capFromExport > capDischarge) recParts.push('充电容量由上网超限 ' + fmt1(dailyExcess/1000) + ' MWh/天 主导 ⚠️');
   if (recParts.length === 0) recParts.push('自发自用已达标');
+  // Show storage hours
+  var storageHours = storagePower > 0 ? (storageCapacity / storagePower).toFixed(1) : '0';
+  recParts.push('储能时长 <b>' + storageHours + ' h</b>' + (capacityIsCapped ? ' ⚠️达上限' : ''));
+  if (capacityIsCapped && cappedExportRatio > TH_EXPORT) {
+    recParts.push('受限于 ' + maxStorageH + 'h 上限，上网率从 ' + fmt1(exportRatio*100) + '% 降至 ' + fmt1(cappedExportRatio*100) + '%（仍 > 20%）');
+  }
   document.getElementById('recDesc').innerHTML = recParts.join(' · ');
 
   // Warn if discharge power is zero (common for wind projects with strong evening output)
@@ -672,6 +697,34 @@ function doCalc() {
     '<div class="result-item font-bold"><span>年净收益</span><span class="font-mono text-[#e65100]">¥ ' + fmtMoney(annualNetWithout) + '</span></div>' +
     '<div class="result-item"><span>储能总投资</span><span class="font-mono">¥ ' + fmtMoney(investment) + '</span></div>' +
     '<hr class="my-1 border-[#ffe0b2]"><div class="result-item font-bold"><span>静态回收期</span><span class="font-mono text-[#e65100]">' + (paybackWithout === Infinity ? '∞' : paybackWithout.toFixed(1) + ' 年') + '</span></div>';
+
+  // === Post-cap and payback warnings ===
+  var warnHtml = '';
+  if (capacityIsCapped && cappedExportRatio > TH_EXPORT) {
+    warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#fff3e0;border:1px solid #ffe082;line-height:1.8;color:#8d6e00">' +
+      '<b>⚠️ 储能已达时长上限 (' + maxStorageH + ' h)</b>，无法完全压平倒送电量。<br>' +
+      '上网率从 <b>' + fmt1(exportRatio*100) + '%</b> → <b>' + fmt1(cappedExportRatio*100) + '%</b>（仍超过 20% 门槛）。<br>' +
+      '💡 建议：① 放宽上网电量预期（可接受弃光/弃风） ② 降低目标自发自用比例 ③ 调大储能时长上限（但经济性会变差）</div>';
+  }
+  if (paybackWith !== Infinity && paybackWith > 8) {
+    warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#fff5f5;border:1px solid #ffcdd2;line-height:1.8;color:#c62828">' +
+      '<b>❌ 方案不经济</b>：即使在含容量压降的最乐观场景下，回收期为 <b>' + paybackWith.toFixed(1) + ' 年</b>（> 8 年门槛）。' +
+      (capacityIsCapped ? '<br>储能已受 ' + maxStorageH + ' h 时长上限约束，进一步放宽不会改善经济性。' : '') +
+      '<br>💡 实际项目中，宁可限电（弃光/弃风）或寻求其他灵活性资源，也不值得用储能硬扛。建议调整参数或接受部分倒送电量。</div>';
+  }
+  if (warnHtml) {
+    var warnArea = document.getElementById('policyWarnings');
+    if (!warnArea) {
+      warnArea = document.createElement('div');
+      warnArea.id = 'policyWarnings';
+      var recCard = document.getElementById('recConfig').parentNode;
+      recCard.parentNode.insertBefore(warnArea, recCard);
+    }
+    warnArea.innerHTML = warnHtml;
+  } else {
+    var wa = document.getElementById('policyWarnings');
+    if (wa) wa.innerHTML = '';
+  }
 
   // Baseline
   var penLevel = penetration <= 0.3 ? '低渗透' : penetration <= 0.6 ? '中等渗透' : penetration <= 0.9 ? '较高渗透' : '高渗透';
@@ -734,15 +787,16 @@ function doCalc() {
   stepsHTML += '</div></div>';
 
   stepsHTML += '<div class="flex items-start gap-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">⑤</span><div><b>合并</b><br>';
+  stepsHTML += '<span class="text-lg">⑤</span><div><b>合并 & 时长约束</b><br>';
   stepsHTML += '功率 = max(充电 ' + fmt(chargePowerNeeded) + ', 放电 ' + fmt(effectiveDischargePower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
-  stepsHTML += '容量 = max(放电 ' + fmt(capDischarge) + ', 充电 ' + fmt(capFromExport) + ') = <b>' + fmt(storageCapacity) + ' kWh</b> (' + (storageCapacity/1000).toFixed(0) + ' MWh)<br>';
-  if (capFromExport > capDischarge) stepsHTML += '<span class="text-xs text-[#e65100]">⚠️ 充电容量（上网超限派生）' + (storageCapacity/1000).toFixed(0) + ' MWh ＞ 放电容量 ' + (capDischarge/1000).toFixed(0) + ' MWh，取充电侧</span><br>';
-  if (capFromExport > 0) {
-    var chargeHoursDerived = storageCapacity / Math.max(1, chargePowerNeeded);
-    stepsHTML += '<span class="text-xs text-[#a1a1a6]">→ 充电小时数 ≈ ' + fmt(storageCapacity) + ' kWh ÷ ' + fmt(chargePowerNeeded) + ' kW = <b>' + fmt1(chargeHoursDerived) + ' h</b></span><br>';
+  stepsHTML += '容量（合并） = max(放电 ' + fmt(capDischarge) + ', 充电 ' + fmt(capFromExport) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b><br>';
+  if (capacityIsCapped) {
+    stepsHTML += '容量（受 ' + maxStorageH + 'h 上限） = min(' + fmt(storageCapacityRaw) + ', ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h) = <b>' + fmt(storageCapacity) + ' kWh</b> <span style="color:#c62828">⚠️ 削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh</span><br>';
+    stepsHTML += '→ 受限后可消纳上网量 = ' + fmt(storageCapacity) + ' × ' + fmt1(dischargeEffVal*100) + '% × ' + fmt1(usableSOC*100) + '% = <b>' + fmt(storageCapacity * dischargeEffVal * usableSOC) + ' kWh/天</b><br>';
+    stepsHTML += '→ 受限后上网率 ≈ <b>' + fmt1(cappedExportRatio*100) + '%</b>（原始 ' + fmt1(exportRatio*100) + '%）<br>';
   }
-  stepsHTML += '→ <b>推荐配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh</b><br>';
+  if (capFromExport > capDischarge) stepsHTML += '<span class="text-xs text-[#e65100]">⚠️ 充电容量（上网超限派生）主导需求</span><br>';
+  stepsHTML += '→ <b>最终配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）</b><br>';
   stepsHTML += '→ 储能投资 ≈ ¥ ' + fmtMoney(investment);
   stepsHTML += '</div></div>';
   stepsHTML += '</div>';
@@ -755,8 +809,9 @@ function doCalc() {
     '<div class="table-wrap" style="overflow-x:auto;font-size:13px">' +
     '<table class="w-full" style="border-collapse:collapse;min-width:360px">' +
     '<tr><th class="p-2 text-left font-semibold" style="background:#f5f5f7;font-size:12px">项目</th><th class="p-2 text-center font-semibold" style="background:#e8f5e9;font-size:12px">含容量压降</th><th class="p-2 text-center font-semibold" style="background:#fff3e0;font-size:12px">不含容量压降</th></tr>' +
-    '<tr><td class="p-2" style="font-size:12px">储能配置</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + powerMW + ' MW / ' + capacityMWh + ' MWh</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">储能配置</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）' + (capacityIsCapped ? ' ⚠️达上限' : '') + '</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">容量主导来源</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + capSource + '</td></tr>' +
+    (capacityIsCapped ? '<tr><td class="p-2" style="font-size:12px">原始需求（未受限）</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + (storageCapacityRaw/1000).toFixed(0) + ' MWh，因 ' + maxStorageH + 'h 上限削至 ' + capacityMWh + ' MWh</td></tr>' : '') +
     '<tr><td class="p-2" style="font-size:12px">放电容量 / 充电容量</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(capDischarge) + ' / ' + fmt(capFromExport) + ' kWh</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">充电功率 / 放电功率</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(chargePowerNeeded) + ' / ' + fmt(effectiveDischargePower) + ' kW</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">新增自发自用电量</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td></tr>' +

@@ -99,7 +99,6 @@
         <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">☀️</span><span class="text-sm font-bold" style="color:#e65100">光伏参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
         <div class="param-card"><div class="input-group"><label>☀️ 日发电量</label><input type="number" id="pvDailyGen" class="input-field" value="440000" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
         <div class="param-card"><div class="input-group"><label>🔆 午间峰值出力</label><input type="number" id="pvPeakGen" class="input-field" value="25000" step="100" min="0"><div class="input-unit">kW</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌙 缺口时段出力</label><input type="number" id="pvGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（晚高峰光伏≈0）</div></div></div>
       </div>
 
       <!-- 风电参数 -->
@@ -107,7 +106,6 @@
         <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">💨</span><span class="text-sm font-bold" style="color:#1565c0">风电参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
         <div class="param-card"><div class="input-group"><label>💨 日发电量</label><input type="number" id="windDailyGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
         <div class="param-card"><div class="input-group"><label>🌞 午间出力（≈峰值35%）</label><input type="number" id="windNoonGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（估算充电功率用）</div></div></div>
-        <div class="param-card"><div class="input-group"><label>🌙 晚高峰出力（≈峰值70%）</label><input type="number" id="windGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（风电夜间大发，缺口时段有支撑）</div></div></div>
       </div>
 
       <!-- 目标与电价 -->
@@ -382,7 +380,7 @@ function parse8760(rows) {
 
   importData = {
     dailyLoad: dailyLoadAvg, dailyGen: dailyGenAvg, maxLoad: maxLoadVal, peakGen: maxGenVal,
-    genDuringGap: detectedSource === 'pv' ? 0 : windGapAvg,
+    measuredGapGen: detectedSource === 'pv' ? 0 : windGapAvg,
     genNoon: detectedSource === 'pv' ? maxGenVal : windNoonAvg,
     gapHours: detectedSource === 'pv' ? 4 : 4,
     selfGenRatio: selfGenRatio, selfLoadRatio: selfLoadRatio, exportRatio: exportRatio,
@@ -441,7 +439,7 @@ function applyImport() {
   var suggestedGrid;
   if (importData.sourceType === 'wind') {
     // Wind has evening output → gap is smaller → targetGrid should be tighter
-    suggestedGrid = Math.round(importData.maxLoad - importData.genDuringGap * 0.5);
+    suggestedGrid = Math.round(importData.maxLoad - importData.measuredGapGen * 0.5);
   } else {
     suggestedGrid = Math.round(importData.maxLoad * 0.8);
   }
@@ -452,15 +450,14 @@ function applyImport() {
   if (importData.sourceType === 'pv') {
     document.getElementById('pvDailyGen').value = Math.round(importData.dailyGen);
     document.getElementById('pvPeakGen').value = Math.round(importData.peakGen);
-    document.getElementById('pvGapGen').value = Math.round(importData.genDuringGap);
   } else {
     document.getElementById('windDailyGen').value = Math.round(importData.dailyGen);
     document.getElementById('windNoonGen').value = Math.round(importData.genNoon || (importData.peakGen * 0.35));
-    document.getElementById('windGapGen').value = Math.round(importData.genDuringGap || (importData.peakGen * 0.7));
   }
-  // Auto-set guaranteedGapGen to 8760 measured value; user should dial DOWN for worst-case
-  if (importData.genDuringGap > 0) {
-    document.getElementById('guaranteedGapGen').value = Math.round(importData.genDuringGap);
+  // Auto-set guaranteedGapGen from 8760 measured gap output
+  var measuredGap = importData.measuredGapGen || 0;
+  if (measuredGap > 0) {
+    document.getElementById('guaranteedGapGen').value = Math.round(measuredGap);
   }
   // Auto-set chargeWindow default
   document.getElementById('chargeWindow').value = importData.sourceType === 'wind' ? 6 : 4;
@@ -468,12 +465,13 @@ function applyImport() {
   // Update data source badge
   document.getElementById('paramSrcBadge').innerHTML = ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760全年均值</span>';
 
-  // Save persistent 8760 data (ratios only — daily values come from input fields)
+  // Save persistent 8760 data (ratios + measured gap for reference display)
   _8760data = {
     selfGenRatio: importData.selfGenRatio,
     selfLoadRatio: importData.selfLoadRatio,
     exportRatio: importData.exportRatio,
     sourceType: importData.sourceType,
+    measuredGapGen: measuredGap,
     hasImport: true
   };
 
@@ -485,19 +483,18 @@ function doCalc() {
   var maxLoad = parseFloat(document.getElementById('maxLoad').value) || 0;
   var dailyLoad = parseFloat(document.getElementById('dailyLoad').value) || 0;
   var gapHours = parseFloat(document.getElementById('gapHours').value) || 4;
-  var dailyGen, peakGen, genDuringGap;
+  var dailyGen, peakGen;
   if (currentSource === 'pv') {
     dailyGen = parseFloat(document.getElementById('pvDailyGen').value) || 0;
     peakGen = parseFloat(document.getElementById('pvPeakGen').value) || 0;
-    genDuringGap = parseFloat(document.getElementById('pvGapGen').value) || 0;
   } else {
     dailyGen = parseFloat(document.getElementById('windDailyGen').value) || 0;
     peakGen = parseFloat(document.getElementById('windNoonGen').value) || 0;
-    genDuringGap = parseFloat(document.getElementById('windGapGen').value) || 0;
   }
   var targetRatio = parseFloat(document.getElementById('targetRatio').value) || 90;
   var targetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
   var guaranteedGapGen = parseFloat(document.getElementById('guaranteedGapGen').value) || 0;
+  var measuredGapGen = (_8760data && _8760data.hasImport) ? (_8760data.measuredGapGen || 0) : 0;
   var gridPrice = parseFloat(document.getElementById('gridPrice').value) || 0;
   var greenCost = parseFloat(document.getElementById('greenCost').value) || 0;
   var capPrice = parseFloat(document.getElementById('capPrice').value) || 0;
@@ -689,7 +686,7 @@ function doCalc() {
       html += '→ 吞-功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + 'h = <b>' + fmt(swallowPower) + ' kW</b><br><br>';
 
       html += '<b>📤 吐（放电）：储能优先，调度只认担保出力</b><br>';
-      html += '担保 = ' + fmt(effectiveGenGap) + ' kW' + (genDuringGap > effectiveGenGap ? '（实测 ' + fmt(genDuringGap) + ' kW，担保了 ' + fmt1(effectiveGenGap/genDuringGap*100) + '%）' : '') + '<br>';
+      html += '担保 = ' + fmt(effectiveGenGap) + ' kW' + (measuredGapGen > effectiveGenGap ? '（8760实测 ' + fmt(measuredGapGen) + ' kW，担保了 ' + fmt1(effectiveGenGap/measuredGapGen*100) + '%）' : '') + '<br>';
       html += '缺口 = ' + fmt(maxLoad) + ' − 担保 = ' + fmt(gapLoad) + ' kW，储能优先吐<br>';
       html += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';
       html += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + gapHours + 'h ÷ 95% ÷ 90% = <b>' + fmt(capDischarge) + ' kWh</b> (' + (capDischarge/1000).toFixed(0) + ' MWh)<br><br>';
@@ -772,10 +769,10 @@ function doCalc() {
   // === DEBUG TRACE ===
   var dbg = [];
   dbg.push('dailyGen=' + fmt(dailyGen) + ' | dailyLoad=' + fmt(dailyLoad) + ' | maxLoad=' + fmt(maxLoad));
-  dbg.push('peakGen=' + fmt(peakGen) + ' | genDuringGap=' + fmt(genDuringGap) + ' | gapHours=' + gapHours);
+  dbg.push('peakGen=' + fmt(peakGen) + ' | measuredGapGen=' + fmt(measuredGapGen) + ' | gapHours=' + gapHours);
   dbg.push('selfGenRatio=' + fmt1(selfGenRatio*100) + '% selfLoadRatio=' + fmt1(selfLoadRatio*100) + '% exportRatio=' + fmt1(exportRatio*100) + '%');
   dbg.push('directConsump=' + fmt(directConsumption) + ' | needMore=' + fmt(needMore) + ' | exportExcess%=' + fmt1(exportExcessRatio*100) + '% | dailyExcess=' + fmt(dailyExcess));
-  dbg.push('担保出力=' + fmt(effectiveGenGap) + 'kW(' + (genDuringGap > effectiveGenGap ? '实测' + fmt(genDuringGap) + '担保率' + fmt1(effectiveGenGap/genDuringGap*100) + '%' : '全覆盖') + ') | 吞A=' + fmt(capChargeSelf) + ' 吞B=' + fmt(capChargeExport) + ' 吞total=' + fmt(capChargeTotal) + ' | 吐=' + fmt(capDischarge));
+  dbg.push('担保出力=' + fmt(effectiveGenGap) + 'kW(' + (measuredGapGen > effectiveGenGap ? '实测' + fmt(measuredGapGen) + '担保率' + fmt1(effectiveGenGap/measuredGapGen*100) + '%' : '全覆盖') + ') | 吞A=' + fmt(capChargeSelf) + ' 吞B=' + fmt(capChargeExport) + ' 吞total=' + fmt(capChargeTotal) + ' | 吐=' + fmt(capDischarge));
   dbg.push('吞功率=' + fmt(swallowPower) + 'kW 吐功率=' + fmt(spitPower) + 'kW | power=' + fmt(storagePower) + 'kW | hours=' + (storagePower>0?(storageCapacity/storagePower).toFixed(1):'0'));
   dbg.push('capReduction=min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', 吐' + fmt(spitPower) + '+担保' + fmt(effectiveGenGap) + ')=' + fmt(effectiveCapReduction) + 'kW（需量制）');
   dbg.push('postStorage: export ' + fmt1(exportRatio*100) + '%→' + fmt1(postStorageExportRatio*100) + '% | selfGen ' + fmt1(selfGenRatio*100) + '%→' + fmt1(postStorageSelfGenRatio*100) + '% | mustCurtail ' + fmt(mustCurtailBeyondExport) + 'kWh/d (' + fmt1(mustCurtailRatio*100) + '%)');
@@ -965,7 +962,7 @@ function doCalc() {
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
   stepsHTML += '<span class="text-lg">②</span><div><b>📤 吐（放电）</b> — 储能优先，大网兜底 ≤ ' + fmt(targetGrid) + ' kW<br><br>';
   stepsHTML += '调度只信任你担保的出力 <b>' + fmt(effectiveGenGap) + ' kW</b>';
-  if (genDuringGap > effectiveGenGap) stepsHTML += '（8760 实测 ' + fmt(genDuringGap) + ' kW，你担保了其中 ' + fmt1(effectiveGenGap/genDuringGap*100) + '%）';
+  if (measuredGapGen > effectiveGenGap) stepsHTML += '（8760实测 ' + fmt(measuredGapGen) + ' kW，你担保了其中 ' + fmt1(effectiveGenGap/measuredGapGen*100) + '%）';
   stepsHTML += '<br>';
   stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' − ' + fmt(effectiveGenGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
   stepsHTML += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';

@@ -391,8 +391,8 @@ function parse8760(rows) {
         if (tp) hw = parseInt(tp.split(':')[0]);
       }
       if (hw >= 0 && hw < 24) {
-        if (hw >= 11 && h <= 14) { windNoonTotal += genAbs; windNoonN++; }
-        if (hw >= 18 && h <= 21) { windGapTotal += genAbs; windGapN++; }
+        if (hw >= 11 && hw <= 14) { windNoonTotal += genAbs; windNoonN++; }
+        if (hw >= 18 && hw <= 21) { windGapTotal += genAbs; windGapN++; }
       }
     }
   }

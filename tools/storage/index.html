@@ -310,9 +310,26 @@ function parse8760(rows) {
     for (var j in colStats) { if (parseInt(j) !== bestLoad && colStats[j].total >= 10 && colStats[j].min < 0) { bestGen = parseInt(j); break; } }
   }
   if (bestLoad < 0 || bestGen < 0) {
-    var msg = '自动检测列失败。检测到 ' + Object.keys(colStats).length + ' 个数值列：';
-    for (var j in colStats) { msg += ' 列' + j + '（负' + colStats[j].neg + '正' + colStats[j].pos + '）'; }
-    throw new Error(msg);
+    // Fallback: try header-based detection
+    var headers = rows[0] || [];
+    var foundLoad = -1, foundGen = -1;
+    for (var jj = 0; jj < headers.length; jj++) {
+      var hh = String(headers[jj] || '');
+      if (hh.indexOf('负荷') >= 0 || hh.indexOf('load') >= 0) foundLoad = jj;
+      if (hh.indexOf('出力') >= 0 || hh.indexOf('发电') >= 0 || hh.indexOf('光伏') >= 0 || hh.indexOf('风电') >= 0 || hh.indexOf('gen') >= 0) foundGen = jj;
+    }
+    if (foundLoad >= 0 && foundGen >= 0) {
+      bestLoad = foundLoad; bestGen = foundGen;
+    } else {
+      // Last resort: assume col1=load, col2=gen
+      if (Object.keys(colStats).length >= 3 && bestLoad < 0 && bestGen < 0) {
+        bestLoad = 1; bestGen = 2;
+      } else {
+        var msg = '自动检测列失败。检测到 ' + Object.keys(colStats).length + ' 个数值列：';
+        for (var j in colStats) { msg += ' 列' + j + '（负' + colStats[j].neg + '正' + colStats[j].pos + '）'; }
+        throw new Error(msg);
+      }
+    }
   }
 
   var colTime = bestTime, colLoad = bestLoad, colGen = bestGen;

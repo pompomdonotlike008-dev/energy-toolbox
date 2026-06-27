@@ -124,6 +124,7 @@
       <div class="param-card"><div class="input-group"><label>💰 储能单位成本</label><input type="number" id="storageCost" class="input-field" value="650" step="10" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>⬇️ 放电效率</label><input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔋 可用 SOC 比例</label><input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⚡ 充电窗口时长</label><input type="number" id="chargeWindow" class="input-field" value="4" step="0.5" min="0.5" max="24"><div class="input-unit">小时（电源富余的集中时段；光伏默认 4h，风电默认 6h）</div></div></div>
       <div class="param-card"><div class="input-group"><label>⏱️ 储能时长上限</label><input type="number" id="maxStorageHours" class="input-field" value="3" step="0.5" min="0.5" max="24"><div class="input-unit">小时（硬约束，超过即阻断并提示弃电）</div></div></div>
       <div class="param-card"><div class="input-group"><label>📅 年运行天数</label><input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365"><div class="input-unit">天/年</div></div></div>
 
@@ -461,6 +462,8 @@ function applyImport() {
   if (importData.genDuringGap > 0) {
     document.getElementById('guaranteedGapGen').value = Math.round(importData.genDuringGap);
   }
+  // Auto-set chargeWindow default
+  document.getElementById('chargeWindow').value = importData.sourceType === 'wind' ? 6 : 4;
 
   // Update data source badge
   document.getElementById('paramSrcBadge').innerHTML = ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760全年均值</span>';
@@ -552,7 +555,7 @@ function doCalc() {
   var capChargeExport = dischargeEffVal > 0 && usableSOC > 0 ? dailyExcess / (dischargeEffVal * usableSOC) : 0;
 
   // 吞-功率：在充电窗口内吞完 needMore
-  var chargeWindow = currentSource === 'pv' ? 4 : 6;
+  var chargeWindow = parseFloat(document.getElementById('chargeWindow').value) || (currentSource === 'pv' ? 4 : 6);
   var swallowPower = chargeWindow > 0 ? needMore / chargeWindow : 0;
 
   // 吞-容量合计

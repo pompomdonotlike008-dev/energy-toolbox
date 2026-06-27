@@ -114,7 +114,6 @@
       <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🎯</span><span class="text-sm font-bold text-[#1a1a1a]">目标与电价</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
       <div class="param-card"><div class="input-group"><label>📈 目标自发自用比例</label><input type="number" id="targetRatio" class="input-field" value="90" step="1" min="0" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔌 目标接网容量</label><input type="number" id="targetGrid" class="input-field" value="40000" step="100" min="0"><div class="input-unit">kW</div></div></div>
-      <div class="param-card"><div class="input-group"><label>🔗 缺口时段电网兜底比例 ⚠️已弃用</label><input type="number" id="gridCoverage" class="input-field" value="0" step="5" min="0" max="100" disabled style="opacity:0.4"><div class="input-unit">%（已改为储能优先放电、大网兜底模式，此参数不再生效）</div></div></div>
       <div class="param-card"><div class="input-group"><label>🛡️ 缺口时段电源保证出力</label><input type="number" id="guaranteedGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（你能保证缺口时段至少有这么多电源出力；填 0=只信储能）</div></div></div>
       <div class="param-card"><div class="input-group"><label>💵 大网综合电价</label><input type="number" id="gridPrice" class="input-field" value="0.60" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>🌱 绿电综合成本</label><input type="number" id="greenCost" class="input-field" value="0.36" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
@@ -495,7 +494,6 @@ function doCalc() {
   }
   var targetRatio = parseFloat(document.getElementById('targetRatio').value) || 90;
   var targetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
-  var gridCoverage = (parseFloat(document.getElementById('gridCoverage').value) || 0) / 100;
   var guaranteedGapGen = parseFloat(document.getElementById('guaranteedGapGen').value) || 0;
   var gridPrice = parseFloat(document.getElementById('gridPrice').value) || 0;
   var greenCost = parseFloat(document.getElementById('greenCost').value) || 0;
@@ -562,10 +560,10 @@ function doCalc() {
 
   // ============================================
   //  吐（放电）侧：储能优先，大网兜底
-  //  优先级：绿电 → 储能放电 → 大网下网（≤ targetGrid）
+  //  绿电 → 储能放电（尽可能多吐） → 大网下网（≤ targetGrid，仅兜底）
   // ============================================
   var gapLoad = maxLoad - genDuringGap;
-  var spitPower = Math.max(0, gapLoad - targetGrid);  // 越过大网目标的部分，储能来吐
+  var spitPower = Math.max(0, gapLoad);  // 储能应覆盖全部缺口，电网只在储能不足时补
   var capDischarge = dischargeEffVal > 0 && usableSOC > 0 ? spitPower * gapHours / (dischargeEffVal * usableSOC) : 0;
 
   // ============================================
@@ -678,7 +676,7 @@ function doCalc() {
       html += '→ 吞-功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + 'h = <b>' + fmt(swallowPower) + ' kW</b><br><br>';
 
       html += '<b>📤 吐（放电）：储能优先，大网兜底 ≤ ' + fmt(targetGrid) + ' kW</b><br>';
-      html += '缺口 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = ' + fmt(gapLoad) + ' kW，超目标 = ' + fmt(gapLoad - targetGrid) + ' kW<br>';
+      html += '缺口 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = ' + fmt(gapLoad) + ' kW，储能优先吐<br>';
       html += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';
       html += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + gapHours + 'h ÷ 95% ÷ 90% = <b>' + fmt(capDischarge) + ' kWh</b> (' + (capDischarge/1000).toFixed(0) + ' MWh)<br><br>';
 
@@ -831,10 +829,9 @@ function doCalc() {
       var recCard = document.getElementById('recConfig').parentNode;
       recCard.appendChild(warnDiv);
     }
-    warnDiv.innerHTML = '<b>⚠️ 容量压降收益为 0</b> — 原因：缺口时段电源出力（' + fmt(genDuringGap) + ' kW）足够高，' +
-      'maxLoad(' + fmt(maxLoad) + ') − genDuringGap(' + fmt(genDuringGap) + ') = <b>' + fmt(maxLoad - genDuringGap) + ' kW</b> ≤ targetGrid(' + fmt(targetGrid) + ' kW)。' +
-      '储能放电功率需求为 0，因此容量电价等参数的变化不影响回收期。<br>' +
-      '💡 <b>这是项目本身的特性</b>（风电晚高峰出力强），不是计算错误。如需测试容量电价敏感性，请<b>调小缺口时段出力</b>或<b>降低目标接网容量</b>至 < ' + fmt(Math.max(0, maxLoad - genDuringGap)) + ' kW。';
+    warnDiv.innerHTML = '<b>⚠️ 缺口为 0</b> — 缺口时段电源出力（' + fmt(genDuringGap) + ' kW）已完全覆盖最大负荷（' + fmt(maxLoad) + ' kW）。<br>' +
+      '无放电需求，储能仅用于充电侧（自发自用+上网限制）。<br>' +
+      '如需测试容量电价敏感性，请<b>调小缺口时段出力</b>以模拟风电不足的场景。';
   } else {
     var w = document.getElementById('dischargeZeroWarn');
     if (w) w.innerHTML = '';
@@ -932,10 +929,9 @@ function doCalc() {
 
   // ② 吐
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">②</span><div><b>📤 吐（放电）</b> — 储能优先放电，大网兜底 ≤ ' + fmt(targetGrid) + ' kW<br><br>';
-  stepsHTML += '调度顺序：绿电 ' + fmt(genDuringGap) + ' kW → 储能放电 → 大网下网 ≤ ' + fmt(targetGrid) + ' kW<br><br>';
+  stepsHTML += '<span class="text-lg">②</span><div><b>📤 吐（放电）</b> — 储能优先，大网兜底 ≤ ' + fmt(targetGrid) + ' kW<br><br>';
   stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
-  stepsHTML += '超过大网目标 = ' + fmt(gapLoad) + ' − ' + fmt(targetGrid) + ' = ' + fmt(gapLoad - targetGrid) + ' kW → 储能来吐<br>';
+  stepsHTML += '储能优先吐，吐不够时大网补（最多补到 ' + fmt(targetGrid) + ' kW）<br>';
   stepsHTML += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';
   stepsHTML += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + gapHours + 'h ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capDischarge) + ' kWh</b> (' + (capDischarge/1000).toFixed(0) + ' MWh)';
   stepsHTML += '</div></div>';

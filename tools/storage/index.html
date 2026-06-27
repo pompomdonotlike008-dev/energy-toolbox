@@ -363,15 +363,19 @@ function parse8760(rows) {
     if (genAbs > maxGenVal) maxGenVal = genAbs;
     count++;
 
-      // Day boundary reset: find hour, reset gap counter at midnight
+      // Day boundary detection: parse hour from any time format
     var hh = -1;
-    if (dt instanceof Date && !isNaN(dt.getTime())) hh = dt.getHours();
+    if (dt instanceof Date && !isNaN(dt.getTime())) { hh = dt.getHours(); }
     else if (typeof dt === 'number') {
       if (dt < 1) hh = Math.floor(dt * 24);
       else if (dt > 40000) hh = Math.floor((dt % 1) * 24);
+    } else if (typeof dt === 'string' && dt.length >= 13) {
+      // String format: '2025-01-01 00:00:00' or '2025-01-01T00:00:00'
+      var timePart = dt.indexOf('T') >= 0 ? dt.split('T')[1] : dt.split(' ')[1];
+      if (timePart) { hh = parseInt(timePart.split(':')[0]); }
     }
     if (hh === 0) { curGapLen = 0; }
-    // Gap tracking per calendar day
+    // Gap tracking
     if (lv > genAbs) {
       curGapLen++;
       if (curGapLen > maxGapLen) maxGapLen = curGapLen;
@@ -379,15 +383,18 @@ function parse8760(rows) {
 
     // Wind typical day extraction if user selected wind
     if (currentSource === 'wind' && dt != null) {
-      var h = -1;
-      if (dt instanceof Date && !isNaN(dt.getTime())) h = dt.getHours();
+      var hw = -1;
+      if (dt instanceof Date && !isNaN(dt.getTime())) hw = dt.getHours();
       else if (typeof dt === 'number') {
-        if (dt < 1) h = Math.floor(dt * 24);
-        else if (dt > 40000) h = Math.floor((dt % 1) * 24);
+        if (dt < 1) hw = Math.floor(dt * 24);
+        else if (dt > 40000) hw = Math.floor((dt % 1) * 24);
+      } else if (typeof dt === 'string' && dt.length >= 13) {
+        var tp = dt.indexOf('T') >= 0 ? dt.split('T')[1] : dt.split(' ')[1];
+        if (tp) hw = parseInt(tp.split(':')[0]);
       }
-      if (h >= 0 && h < 24) {
-        if (h >= 11 && h <= 14) { windNoonTotal += genAbs; windNoonN++; }
-        if (h >= 18 && h <= 21) { windGapTotal += genAbs; windGapN++; }
+      if (hw >= 0 && hw < 24) {
+        if (hw >= 11 && h <= 14) { windNoonTotal += genAbs; windNoonN++; }
+        if (hw >= 18 && h <= 21) { windGapTotal += genAbs; windGapN++; }
       }
     }
   }

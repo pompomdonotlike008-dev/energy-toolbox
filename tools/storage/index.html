@@ -125,7 +125,7 @@
       <div class="param-card"><div class="input-group"><label>⬇️ 放电效率</label><input type="number" id="dischargeEff" class="input-field" value="95" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔋 可用 SOC 比例</label><input type="number" id="usableSOC" class="input-field" value="90" step="1" min="50" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>⚡ 充电窗口时长</label><input type="number" id="chargeWindow" class="input-field" value="4" step="0.5" min="0.5" max="24"><div class="input-unit">小时（电源富余的集中时段；光伏默认 4h，风电默认 6h）</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⏱️ 储能时长上限</label><input type="number" id="maxStorageHours" class="input-field" value="3" step="0.5" min="0.5" max="24"><div class="input-unit">小时（硬约束，超过即阻断并提示弃电）</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⏱️ 储能时长上限</label><input type="number" id="maxStorageHours" class="input-field" value="4" step="0.5" min="0.5" max="24"><div class="input-unit">小时（硬约束，超过即阻断并提示弃电）</div></div></div>
       <div class="param-card"><div class="input-group"><label>📅 年运行天数</label><input type="number" id="opDays" class="input-field" value="300" step="10" min="0" max="365"><div class="input-unit">天/年</div></div></div>
 
     </div>
@@ -590,6 +590,14 @@ function doCalc() {
   var postStorageSelfGenRatio = dailyGen > 0 ? postStorageSelfConsumption / dailyGen : 0;
   var allowExportEnergy = TH_EXPORT * dailyGen;
   var mustCurtailBeyondExport = Math.max(0, postStorageExport - allowExportEnergy);
+
+  // 缺口分析：时长约束导致自发自用无法达标，缺口由大网补
+  var achievableSelfGenRatio = postStorageSelfGenRatio;
+  var targetShortfall = Math.max(0, targetSelfConsumption - postStorageSelfConsumption);  // kWh/天，储能吞不下
+  var gridFillPower = Math.max(0, spitPower - storagePower);  // kW，储能不能完全覆盖缺口时，大网补的功率
+  var gridFillEnergy = gridFillPower * gapHours;               // kWh/天，大网补的电量
+  var achievableTarget = dailyGen > 0 ? Math.floor(postStorageSelfGenRatio * 100) : 0;   // 实际可达的自发自用率%
+  var targetIsAchievable = achievableTarget >= targetRatio;
   var mustCurtailRatio = dailyGen > 0 ? mustCurtailBeyondExport / dailyGen : 0;
 
   // 富余检查
@@ -814,6 +822,12 @@ function doCalc() {
   if (spitPower > 0) recParts.push('顶缺口 <b>' + fmt(spitPower) + ' kW</b>');
   if (capChargeExport > capChargeSelf) recParts.push('上网限制充电容量主导 ⚠️');
   if (recParts.length === 0) recParts.push('自发自用已达标');
+  // Show gap analysis when capped
+  if (capacityIsCapped && !targetIsAchievable) {
+    recParts.push('实际自发自用率 <b>' + fmt1(achievableSelfGenRatio*100) + '%</b>（目标 ' + targetRatio + '%）');
+    recParts.push('每日缺额 <b>' + fmt(targetShortfall) + ' kWh</b> 需大网补');
+    if (gridFillPower > 0) recParts.push('大网补缺口功率 <b>' + fmt(gridFillPower) + ' kW</b>');
+  }
   // Show storage hours
   var storageHours = storagePower > 0 ? (storageCapacity / storagePower).toFixed(1) : '0';
   recParts.push('储能时长 <b>' + storageHours + ' h</b>' + (capacityIsCapped ? ' ⚠️达上限' : ''));
@@ -858,8 +872,22 @@ function doCalc() {
     '<div class="result-item"><span>储能总投资</span><span class="font-mono">¥ ' + fmtMoney(investment) + '</span></div>' +
     '<hr class="my-1 border-[#ffe0b2]"><div class="result-item font-bold"><span>静态回收期</span><span class="font-mono text-[#e65100]">' + (paybackWithout === Infinity ? '∞' : paybackWithout.toFixed(1) + ' 年') + '</span></div>';
 
-  // === Post-cap and payback warnings ===
+  // === Post-cap and gap warnings ===
   var warnHtml = '';
+
+  // Gap analysis: when capped, self-use target can't be met
+  if (capacityIsCapped && !targetIsAchievable) {
+    warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#e3f2fd;border:1px solid #bbdefb;line-height:1.8;color:#0d47a1">' +
+      '<b>⚠️ 受 ' + maxStorageH + 'h 上限约束，自发自用目标无法达成</b><br>' +
+      '目标自发自用率 <b>' + targetRatio + '%</b> → 实际可达 <b>' + fmt1(achievableSelfGenRatio*100) + '%</b><br>' +
+      '每日缺额 <b>' + fmt(targetShortfall) + ' kWh</b>（' + fmt1(targetShortfall/dailyGen*100) + '% 的发电量），需由<b>大网电力</b>补充<br>';
+    if (gridFillPower > 0) {
+      warnHtml += '储能放电功率（' + fmt(storagePower) + ' kW）不足覆盖全部缺口（' + fmt(spitPower) + ' kW），大网需补 <b>' + fmt(gridFillPower) + ' kW</b>、日均 <b>' + fmt(gridFillEnergy) + ' kWh</b><br>';
+    }
+    warnHtml += '💡 建议将目标自发自用比例降至 <b>' + Math.max(60, achievableTarget) + '%</b> 左右，或放宽储能时长上限。' +
+      '</div>';
+  }
+
   if (capacityIsCapped && postStorageExportRatio > TH_EXPORT) {
     warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#fff3e0;border:1px solid #ffe082;line-height:1.8;color:#8d6e00">' +
       '<b>⚠️ 储能已达时长上限 (' + maxStorageH + ' h)</b>，无法完全压平倒送电量。<br>' +
@@ -946,7 +974,9 @@ function doCalc() {
   stepsHTML += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischarge) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
   stepsHTML += '原始时长 = ' + fmt(storageCapacityRaw) + ' ÷ ' + fmt(storagePower) + ' = <b>' + fmt1(rawStorageHours) + ' h</b>';
   if (exceedsHourLimit) {
-    stepsHTML += '<br><span style="color:#c62828">→ ' + fmt1(rawStorageHours) + 'h > ' + maxStorageH + 'h 上限</span>，削至 ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b>（削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh）';
+    stepsHTML += '<br><span style="color:#c62828">→ ' + fmt1(rawStorageHours) + 'h > ' + maxStorageH + 'h 上限</span>，削至 ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b>（削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh）<br>';
+    stepsHTML += '<span style="color:#0d47a1">→ 容量不足，自发自用实际可达 <b>' + fmt1(achievableSelfGenRatio*100) + '%</b>（目标 ' + targetRatio + '%），每日缺 ' + fmt(targetShortfall) + ' kWh 需大网补</span>';
+    if (gridFillPower > 0) stepsHTML += '<br><span style="color:#0d47a1">→ 大网补缺口功率 <b>' + fmt(gridFillPower) + ' kW</b>，日均 <b>' + fmt(gridFillEnergy) + ' kWh</b></span>';
   }
   stepsHTML += '<br><hr style="border:none;border-top:1px dashed #ddd;margin:6px 0">';
   stepsHTML += '→ <b>最终配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）</b><br>';

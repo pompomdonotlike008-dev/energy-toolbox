@@ -246,6 +246,21 @@ function handleFile(e) {
   reader.readAsArrayBuffer(f);
 }
 
+// Peak gap duration: find the longest consecutive stretch around the daily peak
+// where deficit >= 50% of peak.  This isolates the real gap (e.g. evening peak).
+function peakGapDuration(deficits) {
+  var maxD = 0;
+  for (var i = 0; i < deficits.length; i++) { if (deficits[i] > maxD) maxD = deficits[i]; }
+  if (maxD <= 0) return 0;
+  var threshold = maxD * 0.5;
+  var bestLen = 0, curLen = 0;
+  for (var j = 0; j < deficits.length; j++) {
+    if (deficits[j] >= threshold) { curLen++; if (curLen > bestLen) bestLen = curLen; }
+    else { curLen = 0; }
+  }
+  return bestLen;
+}
+
 function parse8760(rows) {
   // === Auto-detect columns by data pattern (no header dependency) ===
   // Scan first 200 rows: find which numeric columns have the right signal
@@ -346,9 +361,10 @@ function parse8760(rows) {
   var maxLoadVal = 0, maxGenVal = 0;
   var count = 0;
   var windNoonTotal = 0, windNoonN = 0, windGapTotal = 0, windGapN = 0;
-  // Gap tracking: for each calendar day, count total hours where load > gen
-  var gapToday = 0, prevDay = -1;
-  var dailyGaps = [];  // each day's total gap hours
+  // Gap tracking: each day's hourly deficits → peak-adjacent duration
+  var prevDay = -1;
+  var todayDeficits = [];     // hourly deficit (load-gen) for current day, 0 where gen≥load
+  var dailyGapHours = [];     // each day's peak-gap hours
 
   for (var k = 0; k < rows.length; k++) {
     var r = rows[k]; if (!r || r.length <= Math.max(colLoad, colGen)) continue;
@@ -364,7 +380,7 @@ function parse8760(rows) {
     if (genAbs > maxGenVal) maxGenVal = genAbs;
     count++;
 
-    // Day boundary: use date prefix (first 10 chars) to detect calendar day change
+    // Day boundary detection
     var dayStr = '';
     if (dt instanceof Date && !isNaN(dt.getTime())) {
       dayStr = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
@@ -374,10 +390,12 @@ function parse8760(rows) {
       dayStr = String(Math.floor(dt));
     }
     if (dayStr !== '' && dayStr !== prevDay) {
-      if (prevDay !== '' && prevDay !== -1) dailyGaps.push(gapToday);
-      gapToday = 0; prevDay = dayStr;
+      if (prevDay !== '' && prevDay !== -1 && todayDeficits.length > 0) {
+        dailyGapHours.push(peakGapDuration(todayDeficits));
+      }
+      todayDeficits = []; prevDay = dayStr;
     }
-    if (lv > genAbs) gapToday++;
+    todayDeficits.push(Math.max(0, lv - genAbs));  // deficit this hour (0 if no gap)
 
     // Wind typical day extraction if user selected wind
     if (currentSource === 'wind' && dt != null) {
@@ -398,27 +416,27 @@ function parse8760(rows) {
   }
   if (count < 100) throw new Error('有效数据行数不足（<100），找到 ' + count + ' 行');
 
-  // Finalize: push last day, compute average
-  if (gapToday > 0) dailyGaps.push(gapToday);
+  // Finalize last day
+  if (todayDeficits.length > 0) dailyGapHours.push(peakGapDuration(todayDeficits));
 
   console.log('=== GAP DEBUG ===');
   console.log('total rows in loop:', count);
-  console.log('dailyGaps.length:', dailyGaps.length);
-  console.log('dailyGaps[0..5]:', dailyGaps.slice(0, 6));
-  console.log('dailyGaps[360..365]:', dailyGaps.slice(360, 366));
+  console.log('dailyGapHours.length:', dailyGapHours.length);
+  console.log('dailyGapHours[0..5]:', dailyGapHours.slice(0, 6));
+  console.log('dailyGapHours[360..365]:', dailyGapHours.slice(360, 366));
   var dgMin = 999, dgMax = 0, dgSum = 0;
-  for (var gi = 0; gi < dailyGaps.length; gi++) {
-    dgSum += dailyGaps[gi];
-    if (dailyGaps[gi] < dgMin) dgMin = dailyGaps[gi];
-    if (dailyGaps[gi] > dgMax) dgMax = dailyGaps[gi];
+  for (var gi = 0; gi < dailyGapHours.length; gi++) {
+    dgSum += dailyGapHours[gi];
+    if (dailyGapHours[gi] < dgMin) dgMin = dailyGapHours[gi];
+    if (dailyGapHours[gi] > dgMax) dgMax = dailyGapHours[gi];
   }
-  console.log('gap stats: min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avg=' + Math.round(dgSum/dailyGaps.length));
+  console.log('gap stats: min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avg=' + Math.round(dgSum/dailyGapHours.length));
 
   var avgGapLen = 4;  // fallback
-  if (dailyGaps.length > 0) {
+  if (dailyGapHours.length > 0) {
     var sum = 0;
-    for (var gi = 0; gi < dailyGaps.length; gi++) sum += dailyGaps[gi];
-    avgGapLen = Math.round(sum / dailyGaps.length);
+    for (var gi = 0; gi < dailyGapHours.length; gi++) sum += dailyGapHours[gi];
+    avgGapLen = Math.round(sum / dailyGapHours.length);
     if (avgGapLen < 1) avgGapLen = 4;
   }
   console.log('→ avgGapLen =', avgGapLen, '| hasImport:', !!importData);
@@ -471,7 +489,7 @@ function parse8760(rows) {
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-base font-bold mt-1 ' + (exportRatio<=0.2?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20%</p></div>' +
     '</div>' +
     '<div class="text-xs text-[#a1a1a6] mt-2">✅ 已自动填入典型日参数并触发计算 · 日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 日均最长缺口 ' + avgGapLen + ' h · 上网量 ' + fmt1(exported/10000) + ' 万kWh<br>下方参数可手动修改后再点「开始倒算」</div>';
-    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGaps.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + '</div>'
+    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGapHours.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + '</div>'
 
   // Auto-fill and auto-calc
   document.getElementById('skipUploadNote').style.display = 'none';

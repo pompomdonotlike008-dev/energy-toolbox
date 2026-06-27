@@ -400,6 +400,20 @@ function parse8760(rows) {
 
   // Finalize: push last day, compute average
   if (gapToday > 0) dailyGaps.push(gapToday);
+
+  console.log('=== GAP DEBUG ===');
+  console.log('total rows in loop:', count);
+  console.log('dailyGaps.length:', dailyGaps.length);
+  console.log('dailyGaps[0..5]:', dailyGaps.slice(0, 6));
+  console.log('dailyGaps[360..365]:', dailyGaps.slice(360, 366));
+  var dgMin = 999, dgMax = 0, dgSum = 0;
+  for (var gi = 0; gi < dailyGaps.length; gi++) {
+    dgSum += dailyGaps[gi];
+    if (dailyGaps[gi] < dgMin) dgMin = dailyGaps[gi];
+    if (dailyGaps[gi] > dgMax) dgMax = dailyGaps[gi];
+  }
+  console.log('gap stats: min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avg=' + Math.round(dgSum/dailyGaps.length));
+
   var avgGapLen = 4;  // fallback
   if (dailyGaps.length > 0) {
     var sum = 0;
@@ -407,6 +421,8 @@ function parse8760(rows) {
     avgGapLen = Math.round(sum / dailyGaps.length);
     if (avgGapLen < 1) avgGapLen = 4;
   }
+  console.log('→ avgGapLen =', avgGapLen, '| imported?', imported);
+  console.log('===================');
 
   var selfGenRatio = totalGen > 0 ? directConsumption / totalGen : 0;
   var selfLoadRatio = totalLoad > 0 ? directConsumption / totalLoad : 0;

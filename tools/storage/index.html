@@ -421,7 +421,7 @@ function parse8760(rows) {
     avgGapLen = Math.round(sum / dailyGaps.length);
     if (avgGapLen < 1) avgGapLen = 4;
   }
-  console.log('→ avgGapLen =', avgGapLen, '| imported?', imported);
+  console.log('→ avgGapLen =', avgGapLen, '| hasImport:', !!importData);
   console.log('===================');
 
   var selfGenRatio = totalGen > 0 ? directConsumption / totalGen : 0;
@@ -471,6 +471,7 @@ function parse8760(rows) {
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-base font-bold mt-1 ' + (exportRatio<=0.2?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20%</p></div>' +
     '</div>' +
     '<div class="text-xs text-[#a1a1a6] mt-2">✅ 已自动填入典型日参数并触发计算 · 日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 日均最长缺口 ' + avgGapLen + ' h · 上网量 ' + fmt1(exported/10000) + ' 万kWh<br>下方参数可手动修改后再点「开始倒算」</div>';
+    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGaps.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + '</div>'
 
   // Auto-fill and auto-calc
   document.getElementById('skipUploadNote').style.display = 'none';

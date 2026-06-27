@@ -114,7 +114,7 @@
       <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🎯</span><span class="text-sm font-bold text-[#1a1a1a]">目标与电价</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
       <div class="param-card"><div class="input-group"><label>📈 目标自发自用比例</label><input type="number" id="targetRatio" class="input-field" value="90" step="1" min="0" max="100"><div class="input-unit">%</div></div></div>
       <div class="param-card"><div class="input-group"><label>🔌 目标接网容量</label><input type="number" id="targetGrid" class="input-field" value="40000" step="100" min="0"><div class="input-unit">kW</div></div></div>
-      <div class="param-card"><div class="input-group"><label>🔗 缺口时段电网兜底比例 ⚠️已弃用</label><input type="number" id="gridCoverage" class="input-field" value="0" step="5" min="0" max="100" disabled style="opacity:0.4"><div class="input-unit">%（已改为储能优先放电、大网兜底模式，此参数不再生效）</div></div></div>
+      <div class="param-card"><div class="input-group"><label>🔗 缺口时段电网兜底比例</label><input type="number" id="gridCoverage" class="input-field" value="0" step="5" min="0" max="100"><div class="input-unit">%（0=储能全扛）</div></div></div>
       <div class="param-card"><div class="input-group"><label>🛡️ 缺口时段电源保证出力</label><input type="number" id="guaranteedGapGen" class="input-field" value="0" step="100" min="0"><div class="input-unit">kW（你能保证缺口时段至少有这么多电源出力；填 0=只信储能）</div></div></div>
       <div class="param-card"><div class="input-group"><label>💵 大网综合电价</label><input type="number" id="gridPrice" class="input-field" value="0.60" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
       <div class="param-card"><div class="input-group"><label>🌱 绿电综合成本</label><input type="number" id="greenCost" class="input-field" value="0.36" step="0.01" min="0"><div class="input-unit">元/kWh</div></div></div>
@@ -154,14 +154,14 @@
     <!-- Two scenarios -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <div class="result-card" style="background:#e8f5e9">
-        <div class="flex items-center gap-2 mb-1"><span class="text-lg">✅</span><span class="section-badge" style="background:rgba(46,125,50,0.12);color:#2e7d32">含容量压降（需量制）</span></div>
-        <p class="text-xs text-[#666] mb-1">按最大需量计费，电网认可实际不超目标接网容量</p>
+        <div class="flex items-center gap-2 mb-1"><span class="text-lg">✅</span><span class="section-badge" style="background:rgba(46,125,50,0.12);color:#2e7d32">含容量压降</span></div>
+        <p class="text-xs text-[#666] mb-1">接网容量压降被电网认可</p>
         <div class="result-value text-[#2e7d32] mb-3" id="result_with">--</div>
         <div class="text-sm text-[#555]" id="detail_with"></div>
       </div>
       <div class="result-card" style="background:#fff3e0">
-        <div class="flex items-center gap-2 mb-1"><span class="text-lg">⚠️</span><span class="section-badge" style="background:rgba(230,81,0,0.12);color:#e65100">不含容量压降（需量制）</span></div>
-        <p class="text-xs text-[#666] mb-1">仅靠自发自用收益（或按变压器容量计费）</p>
+        <div class="flex items-center gap-2 mb-1"><span class="text-lg">⚠️</span><span class="section-badge" style="background:rgba(230,81,0,0.12);color:#e65100">不含容量压降</span></div>
+        <p class="text-xs text-[#666] mb-1">仅靠自发自用收益</p>
         <div class="result-value text-[#e65100] mb-3" id="result_without">--</div>
         <div class="text-sm text-[#555]" id="detail_without"></div>
       </div>
@@ -664,30 +664,35 @@ function doCalc() {
 
       // Full calculation trace
       html += '<hr style="border-style:solid;border-width:1px 0 0;border-color:#eee;margin:18px 0">';
-      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">📐 完整倒算过程（吞/吐）</h2>';
+      html += '<h2 class="text-lg font-bold text-[#1a1a1a] mb-3">📐 完整倒算过程</h2>';
       html += '<div style="font-size:12px;line-height:1.9;color:#555">';
 
-      html += '<b>📥 吞-来源A：自发自用目标</b><br>';
+      html += '<b>① 自发自用充电容量</b><br>';
+      html += '目标自发自用 = ' + fmt(dailyGen) + ' × ' + targetRatio + '% = <b>' + fmt(targetSelfConsumption) + ' kWh/天</b><br>';
       html += '需新增 = ' + fmt(targetSelfConsumption) + ' − ' + fmt(directConsumption) + ' = <b>' + fmt(needMore) + ' kWh/天</b><br>';
-      html += '吞-容量 = ' + fmt(needMore) + ' ÷ 95% ÷ 90% = <b>' + fmt(capChargeSelf) + ' kWh</b> (' + (capChargeSelf/1000).toFixed(0) + ' MWh)<br><br>';
+      html += '自发自用充电容量 = ' + fmt(needMore) + ' ÷ 95.0% ÷ 90.0% = <b>' + fmt(capFromDischarge) + ' kWh</b> (' + (capFromDischarge/1000).toFixed(0) + ' MWh)<br>';
+      html += '缺口侧容量 = ' + fmt(effectiveDischargePower) + 'kW × ' + gapHours + 'h ÷ 95.0% ÷ 90.0% = <b>' + fmt(capFromPeak) + ' kWh</b><br>';
+      html += '自发自用充电容量合计 = max(' + fmt(capFromDischarge) + ', ' + fmt(capFromPeak) + ') = <b>' + fmt(Math.max(capFromDischarge, capFromPeak)) + ' kWh</b><br><br>';
 
-      html += '<b>📥 吞-来源B：上网限制</b><br>';
-      html += '上网 ' + fmt1(exportRatio*100) + '% − 20% = <b>' + fmt1(exportExcessRatio*100) + '%</b> → 日均 ' + fmt(dailyExcess) + ' kWh<br>';
-      html += '吞-容量 = ' + fmt(dailyExcess) + ' ÷ 95% ÷ 90% = <b>' + fmt(capChargeExport) + ' kWh</b> (' + (capChargeExport/1000).toFixed(0) + ' MWh)<br>';
-      html += '→ 吞-合计 = max(' + fmt(capChargeSelf) + ', ' + fmt(capChargeExport) + ') = <b>' + fmt(capChargeTotal) + ' kWh</b><br>';
-      html += '→ 吞-功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + 'h = <b>' + fmt(swallowPower) + ' kW</b><br><br>';
+      html += '<b>② 上网限制充电容量</b><br>';
+      html += '上网比例 = <b>' + fmt1(exportRatio*100) + '%</b>，超限 = ' + fmt1(exportExcessRatio*100) + '%<br>';
+      html += '日均超量 = ' + fmt1(exportExcessRatio*100) + '% × ' + fmt(dailyGen) + ' = <b>' + fmt(dailyExcess) + ' kWh/天</b><br>';
+      html += '上网限制充电容量 = ' + fmt(dailyExcess) + ' ÷ 95.0% ÷ 90.0% = <b>' + fmt(capFromExport) + ' kWh</b> (' + (capFromExport/1000).toFixed(0) + ' MWh)<br><br>';
 
-      html += '<b>📤 吐（放电）：储能优先，大网兜底 ≤ ' + fmt(targetGrid) + ' kW</b><br>';
-      html += '缺口 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = ' + fmt(gapLoad) + ' kW，超目标 = ' + fmt(gapLoad - targetGrid) + ' kW<br>';
-      html += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';
-      html += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + gapHours + 'h ÷ 95% ÷ 90% = <b>' + fmt(capDischarge) + ' kWh</b> (' + (capDischarge/1000).toFixed(0) + ' MWh)<br><br>';
+      html += '<b>③ 放电功率</b><br>';
+      html += '缺口时段出力 = <b>' + fmt(genDuringGap) + ' kW</b><br>';
+      html += '缺口负荷 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
+      html += '储能实需放电 = (' + fmt(gapLoad) + ' − ' + fmt(targetGrid) + ') × ' + fmt1((1-gridCoverage)*100) + '% = <b>' + fmt(effectiveDischargePower) + ' kW</b><br><br>';
 
-      html += '<b>🔀 吞吐取大</b><br>';
-      html += '功率 = max(吞 ' + fmt(swallowPower) + ', 吐 ' + fmt(spitPower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
-      html += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischarge) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
+      html += '<b>④ 充电功率</b><br>';
+      html += '充电窗口 = <b>' + chargeWindow + ' h</b>，充电功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + ' = <b>' + fmt(chargePowerNeeded) + ' kW</b><br><br>';
+
+      html += '<b>⑤ 合并 & 时长约束</b><br>';
+      html += '功率 = max(充电 ' + fmt(chargePowerNeeded) + ', 放电 ' + fmt(effectiveDischargePower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
+      html += '原始容量 = max(自发自用 ' + fmt(Math.max(capFromDischarge, capFromPeak)) + ', 上网限制 ' + fmt(capFromExport) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
       html += '原始时长 = ' + fmt(storageCapacityRaw) + ' ÷ ' + fmt(storagePower) + ' = <b>' + fmt1(rawStorageHours) + ' h</b><br>';
-      html += '<span style="color:#c62828">→ ' + fmt1(rawStorageHours) + 'h > ' + maxStorageH + 'h 上限，触发阻断</span><br>';
-      html += '受 ' + maxStorageH + 'h 上限：' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b>，削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh';
+      html += '<span style="color:#c62828">→ ' + (storageCapacityRaw/1000).toFixed(0) + ' MWh ÷ ' + (storagePower/1000).toFixed(1) + ' MW = <b>' + fmt1(rawStorageHours) + ' h > ' + maxStorageH + ' h</b>，触发阻断</span><br>';
+      html += '受 ' + maxStorageH + 'h 上限：' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b> (' + (storageCapacity/1000).toFixed(0) + ' MWh)，削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh';
 
       html += '</div>';
 
@@ -697,7 +702,7 @@ function doCalc() {
       var ecoInvestment = storageCapacity * storageCost;
       var ecoOM = ecoInvestment * 0.01;
       var ecoSelfBenefit = needMore * (gridPrice - greenCost) * opDays;
-      var ecoCapReduction = Math.min(Math.max(0, maxLoad - targetGrid), spitPower + guaranteedGapGen);
+      var ecoCapReduction = Math.min(Math.max(0, maxLoad - targetGrid), effectiveDischargePower + guaranteedGapGen);
       var ecoCapBenefit = ecoCapReduction * capPrice * 12;
       var ecoWith = ecoSelfBenefit + ecoCapBenefit - ecoOM;
       var ecoWithout = ecoSelfBenefit - ecoOM;
@@ -709,8 +714,8 @@ function doCalc() {
       html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">';
       // With-cap card
       html += '<div class="result-card" style="background:#e8f5e9">';
-      html += '<div class="flex items-center gap-2 mb-1"><span>✅</span><span class="section-badge" style="background:rgba(46,125,50,0.12);color:#2e7d32">含容量压降（需量制）</span></div>';
-      html += '<p class="text-xs text-[#666] mb-1">按最大需量计费，电网认可实际不超目标接网容量</p>';
+      html += '<div class="flex items-center gap-2 mb-1"><span>✅</span><span class="section-badge" style="background:rgba(46,125,50,0.12);color:#2e7d32">含容量压降</span></div>';
+      html += '<p class="text-xs text-[#666] mb-1">接网容量压降被电网认可</p>';
       html += '<div class="result-value text-[#2e7d32] mb-3">' + (pbWith === Infinity ? '无法回收' : pbWith.toFixed(1) + ' 年回本') + '</div>';
       html += '<div class="text-sm text-[#555]">';
       html += '<div class="result-item"><span>年自发自用收益</span><span class="font-mono">¥ ' + fmtMoney(ecoSelfBenefit) + '</span></div>';
@@ -722,8 +727,8 @@ function doCalc() {
       html += '</div></div>';
       // Without-cap card
       html += '<div class="result-card" style="background:#fff3e0">';
-      html += '<div class="flex items-center gap-2 mb-1"><span>⚠️</span><span class="section-badge" style="background:rgba(230,81,0,0.12);color:#e65100">不含容量压降（需量制）</span></div>';
-      html += '<p class="text-xs text-[#666] mb-1">仅靠自发自用收益（或按变压器容量计费）</p>';
+      html += '<div class="flex items-center gap-2 mb-1"><span>⚠️</span><span class="section-badge" style="background:rgba(230,81,0,0.12);color:#e65100">不含容量压降</span></div>';
+      html += '<p class="text-xs text-[#666] mb-1">仅靠自发自用收益</p>';
       html += '<div class="result-value text-[#e65100] mb-3">' + (pbWithout === Infinity ? '无法回收' : pbWithout.toFixed(1) + ' 年回本') + '</div>';
       html += '<div class="text-sm text-[#555]">';
       html += '<div class="result-item"><span>年自发自用收益</span><span class="font-mono">¥ ' + fmtMoney(ecoSelfBenefit) + '</span></div>';
@@ -737,7 +742,7 @@ function doCalc() {
       html += '<b>回收期推导：</b>投资 ¥' + fmtMoney(ecoInvestment) + ' = ' + (storageCapacity/1000).toFixed(0) + ' MWh × ' + storageCost + ' 元/kWh<br>';
       html += '年收益 = ' + fmt(needMore) + ' × (' + gridPrice + ' − ' + greenCost + ') × ' + opDays + ' = ¥' + fmtMoney(ecoSelfBenefit) + '（自发自用）';
       if (ecoCapReduction > 0) {
-        html += ' + min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(spitPower) + '+' + fmt(guaranteedGapGen) + ') × ' + capPrice + ' × 12 = ¥' + fmtMoney(ecoCapBenefit) + '（压降）';
+        html += ' + min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(effectiveDischargePower) + '+' + fmt(guaranteedGapGen) + ') × ' + capPrice + ' × 12 = ¥' + fmtMoney(ecoCapBenefit) + '（压降）';
       }
       html += '<br>回收期 = ¥' + fmtMoney(ecoInvestment) + ' ÷ (¥' + fmtMoney(ecoSelfBenefit) + (ecoCapReduction > 0 ? ' + ¥' + fmtMoney(ecoCapBenefit) : '') + ' − ¥' + fmtMoney(ecoOM) + ')';
       html += '</div>';
@@ -763,9 +768,9 @@ function doCalc() {
   dbg.push('peakGen=' + fmt(peakGen) + ' | genDuringGap=' + fmt(genDuringGap) + ' | gapHours=' + gapHours);
   dbg.push('selfGenRatio=' + fmt1(selfGenRatio*100) + '% selfLoadRatio=' + fmt1(selfLoadRatio*100) + '% exportRatio=' + fmt1(exportRatio*100) + '%');
   dbg.push('directConsump=' + fmt(directConsumption) + ' | needMore=' + fmt(needMore) + ' | exportExcess%=' + fmt1(exportExcessRatio*100) + '% | dailyExcess=' + fmt(dailyExcess));
-  dbg.push('吞A=' + fmt(capChargeSelf) + ' 吞B=' + fmt(capChargeExport) + ' 吞total=' + fmt(capChargeTotal) + ' | 吐=' + fmt(capDischarge) + ' | raw=' + fmt(storageCapacityRaw) + ' capped=' + fmt(storageCapacity));
-  dbg.push('吞功率=' + fmt(swallowPower) + 'kW 吐功率=' + fmt(spitPower) + 'kW | power=' + fmt(storagePower) + 'kW | hours=' + (storagePower>0?(storageCapacity/storagePower).toFixed(1):'0'));
-  dbg.push('capReduction=min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', 吐' + fmt(spitPower) + '+' + fmt(guaranteedGapGen) + ')=' + fmt(effectiveCapReduction) + 'kW（需量制）');
+  dbg.push('capSelfUse=' + fmt(capDischarge) + ' | capPeak=' + fmt(capFromPeak) + ' | capExportLimit=' + fmt(capFromExport) + ' | raw=' + fmt(storageCapacityRaw) + ' | capped=' + fmt(storageCapacity));
+  dbg.push('effDiscPower=' + fmt(effectiveDischargePower) + ' | chargePower=' + fmt(chargePowerNeeded) + ' | power=' + fmt(storagePower) + 'kW | hours=' + (storagePower>0?(storageCapacity/storagePower).toFixed(1):'0'));
+  dbg.push('capacityReduction=maxLoad-targetGrid=' + fmt(Math.max(0, maxLoad - targetGrid)) + ' | capReduction=min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(effectiveDischargePower) + '+' + fmt(guaranteedGapGen) + ')=' + fmt(effectiveCapReduction) + 'kW');
   dbg.push('postStorage: export ' + fmt1(exportRatio*100) + '%→' + fmt1(postStorageExportRatio*100) + '% | selfGen ' + fmt1(selfGenRatio*100) + '%→' + fmt1(postStorageSelfGenRatio*100) + '% | mustCurtail ' + fmt(mustCurtailBeyondExport) + 'kWh/d (' + fmt1(mustCurtailRatio*100) + '%)');
   dbg.push('has8760data=' + (imported ? 'YES' : 'NO') + ' | source=' + currentSource + ' | allPassed=' + allPassed);
   console.log('DEBUG:\n' + dbg.join('\n'));
@@ -810,8 +815,8 @@ function doCalc() {
   document.getElementById('recConfig').textContent = powerMW + ' MW / ' + capacityMWh + ' MWh';
   var recParts = [];
   if (needMore > 0) recParts.push('搬移 <b>' + fmt(needMore) + ' kWh/天</b>');
-  if (spitPower > 0) recParts.push('顶缺口 <b>' + fmt(spitPower) + ' kW</b>');
-  if (capChargeExport > capChargeSelf) recParts.push('上网限制充电容量主导 ⚠️');
+  if (effectiveDischargePower > 0) recParts.push('顶缺口 <b>' + fmt(effectiveDischargePower) + ' kW</b>');
+  if (capFromExport > capDischarge) recParts.push('上网限制充电容量 ' + fmt1(dailyExcess/1000) + ' MWh/天 主导 ⚠️');
   if (recParts.length === 0) recParts.push('自发自用已达标');
   // Show storage hours
   var storageHours = storagePower > 0 ? (storageCapacity / storagePower).toFixed(1) : '0';
@@ -822,7 +827,7 @@ function doCalc() {
   document.getElementById('recDesc').innerHTML = recParts.join(' · ');
 
   // Warn if discharge power is zero (common for wind projects with strong evening output)
-  if (spitPower <= 0 && dailyGen > 0) {
+  if (effectiveDischargePower <= 0 && dailyGen > 0) {
     var warnDiv = document.getElementById('dischargeZeroWarn');
     if (!warnDiv) {
       warnDiv = document.createElement('div');
@@ -869,7 +874,7 @@ function doCalc() {
   }
   if (paybackWith !== Infinity && paybackWith > 8) {
     warnHtml += '<div class="mb-4 p-4 rounded-xl text-sm" style="background:#fff5f5;border:1px solid #ffcdd2;line-height:1.8;color:#c62828">' +
-      '<b>❌ 方案不经济</b>：即使在含容量压降（需量制）的最乐观场景下，回收期为 <b>' + paybackWith.toFixed(1) + ' 年</b>（> 8 年门槛）。' +
+      '<b>❌ 方案不经济</b>：即使在含容量压降的最乐观场景下，回收期为 <b>' + paybackWith.toFixed(1) + ' 年</b>（> 8 年门槛）。' +
       (capacityIsCapped ? '<br>储能已受 ' + maxStorageH + ' h 时长上限约束，进一步放宽不会改善经济性。' : '') +
       '<br>💡 实际项目中，宁可限电（弃光/弃风）或寻求其他灵活性资源，也不值得用储能硬扛。建议调整参数或接受部分倒送电量。</div>';
   }
@@ -904,71 +909,81 @@ function doCalc() {
       '<div class="bg-[#f5f5f7] rounded-xl p-2 text-center"><p class="text-xs text-[#86868b]">上网电量' + (imported?'（实测）':'（估）') + '</p><p class="font-bold ' + (passedExport?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt(exported) + ' kWh</p></div>' +
     '</div>';
 
-  // Steps: 吞/吐 三块
-  var stepsHTML = '<div style="font-size:13px;line-height:1.9">';
+  // Steps
+  var stepsHTML = '<div style="font-size:13px;line-height:1.8">';
 
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">⓪</span><div><b>三定量门槛</b> <span class="badge-policy" style="font-size:10px">650+688号文</span><br>';
-  stepsHTML += '电源：<b>' + srcLabel + '</b>' + (imported ? '（8760逐时）' : '（估算）') + '<br>';
-  stepsHTML += '① 自发自用÷发电 = <b>' + fmt1(selfGenRatio*100) + '%</b> vs ≥60% → ' + (passedGen ? '✅' : '❌') + '<br>';
-  stepsHTML += '② 自发自用÷用电 = <b>' + fmt1(selfLoadRatio*100) + '%</b> vs ≥30% → ' + (passedLoad ? '✅' : '❌') + '<br>';
-  stepsHTML += '③ 上网÷发电 = <b>' + fmt1(exportRatio*100) + '%</b> vs ≤20% → ' + (passedExport ? '✅' : '❌') + '<br>';
-  stepsHTML += '→ ' + (allPassed ? '<b style="color:#2e7d32">三项全部达标</b>' : '<b style="color:#e65100">有不达标项</b>');
+  stepsHTML += '<span class="text-lg">⓪</span><div><b>三定量门槛判断</b> <span class="badge-policy" style="font-size:10px">650号文+688号文</span><br>';
+  stepsHTML += '电源类型：<b>' + srcLabel + '</b>' + (imported ? '（8760逐时）' : '（估算）') + '<br>';
+  stepsHTML += '① 自发自用÷发电 = <b>' + fmt1(selfGenRatio*100) + '%</b> vs 需≥60% → ' + (passedGen ? '<span style="color:#2e7d32">✅</span>' : '<span style="color:#c62828">❌</span>') + '<br>';
+  stepsHTML += '② 自发自用÷用电 = <b>' + fmt1(selfLoadRatio*100) + '%</b> vs 需≥30% → ' + (passedLoad ? '<span style="color:#2e7d32">✅</span>' : '<span style="color:#c62828">❌</span>') + '<br>';
+  stepsHTML += '③ 上网÷发电 = <b>' + fmt1(exportRatio*100) + '%</b> vs 需≤20% → ' + (passedExport ? '<span style="color:#2e7d32">✅</span>' : '<span style="color:#c62828">❌</span>') + '<br>';
+  stepsHTML += '→ ' + (allPassed ? '<b style="color:#2e7d32">三项全部达标，可能不需要储能</b>' : '<b style="color:#e65100">存在不达标项，储能可帮助达标</b>');
   stepsHTML += '</div></div>';
 
-  // ① 吞
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">①</span><div><b>📥 吞（充电）</b><br><br>';
-  stepsHTML += '<b>来源A：自发自用目标</b>（提高到 ' + targetRatio + '%）<br>';
-  stepsHTML += '需新增 = ' + fmt(targetSelfConsumption) + ' − ' + fmt(directConsumption) + ' = <b>' + fmt(needMore) + ' kWh/天</b><br>';
-  stepsHTML += '→ 吞-容量 = ' + fmt(needMore) + ' ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capChargeSelf) + ' kWh</b> (' + (capChargeSelf/1000).toFixed(0) + ' MWh)<br>';
-  stepsHTML += '→ 吞-功率 = ' + fmt(needMore) + ' ÷ 充电窗口' + chargeWindow + 'h = <b>' + fmt(swallowPower) + ' kW</b><br><br>';
-  stepsHTML += '<b>来源B：上网限制</b>（上网 ' + fmt1(exportRatio*100) + '% > 20%）<br>';
-  stepsHTML += '超限 = ' + fmt1(exportExcessRatio*100) + '% → 日均超量 = <b>' + fmt(dailyExcess) + ' kWh/天</b><br>';
-  stepsHTML += '→ 吞-容量 = ' + fmt(dailyExcess) + ' ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capChargeExport) + ' kWh</b> (' + (capChargeExport/1000).toFixed(0) + ' MWh)<br>';
-  stepsHTML += '<hr style="border:none;border-top:1px dashed #ddd;margin:6px 0">';
-  stepsHTML += '吞-合计 = max(' + fmt(capChargeSelf) + ', ' + fmt(capChargeExport) + ') = <b>' + fmt(capChargeTotal) + ' kWh</b> (' + (capChargeTotal/1000).toFixed(0) + ' MWh)';
+  stepsHTML += '<span class="text-lg">①</span><div><b>自发自用充电容量</b><br>';
+  stepsHTML += '目标自发自用 = ' + fmt(dailyGen) + ' × ' + targetRatio + '% = <b>' + fmt(targetSelfConsumption) + ' kWh/天</b><br>';
+  stepsHTML += '需新增 = ' + fmt(targetSelfConsumption) + ' - ' + fmt(directConsumption) + ' = <b>' + fmt(needMore) + ' kWh/天</b><br>';
+  stepsHTML += '自发自用充电容量 = ' + fmt(needMore) + ' ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromDischarge) + ' kWh</b> (' + (capFromDischarge/1000).toFixed(0) + ' MWh)<br>';
+  stepsHTML += '缺口侧容量 = ' + fmt(effectiveDischargePower) + 'kW × ' + gapHours + 'h ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromPeak) + ' kWh</b><br>';
+  stepsHTML += '自发自用充电容量合计 = max(' + fmt(capFromDischarge) + ', ' + fmt(capFromPeak) + ') = <b>' + fmt(capDischarge) + ' kWh</b>';
   stepsHTML += '</div></div>';
 
-  // ② 吐
   stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">②</span><div><b>📤 吐（放电）</b> — 储能优先放电，大网兜底 ≤ ' + fmt(targetGrid) + ' kW<br><br>';
-  stepsHTML += '调度顺序：绿电 ' + fmt(genDuringGap) + ' kW → 储能放电 → 大网下网 ≤ ' + fmt(targetGrid) + ' kW<br><br>';
-  stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' − ' + fmt(genDuringGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
-  stepsHTML += '超过大网目标 = ' + fmt(gapLoad) + ' − ' + fmt(targetGrid) + ' = ' + fmt(gapLoad - targetGrid) + ' kW → 储能来吐<br>';
-  stepsHTML += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';
-  stepsHTML += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + gapHours + 'h ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capDischarge) + ' kWh</b> (' + (capDischarge/1000).toFixed(0) + ' MWh)';
+  stepsHTML += '<span class="text-lg">②</span><div><b>上网限制充电容量 <span class="badge-policy" style="font-size:10px">688号文 ≤20%</span></b><br>';
+  stepsHTML += '上网比例 = <b>' + fmt1(exportRatio*100) + '%</b>，超限 = ' + fmt1(exportRatio*100) + '% - 20% = <b>' + fmt1(exportExcessRatio*100) + '%</b><br>';
+  stepsHTML += '日均超量 = ' + fmt1(exportExcessRatio*100) + '% × ' + fmt(dailyGen) + ' = <b>' + fmt(dailyExcess) + ' kWh/天</b><br>';
+  stepsHTML += '上网限制充电容量 = ' + fmt(dailyExcess) + ' ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capFromExport) + ' kWh</b> (' + (capFromExport/1000).toFixed(0) + ' MWh)<br>';
+  if (exportExcessRatio <= 0) stepsHTML += '<span class="text-xs text-[#2e7d32]">上网未超 20%，无上网限制充电需求</span>';
   stepsHTML += '</div></div>';
 
-  // ③ 合并
+  stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">③</span><div><b>放电功率</b><br>';
+  stepsHTML += '缺口时段电源出力 = <b>' + fmt(genDuringGap) + ' kW</b>（' + srcLabel + '）<br>';
+  stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' - ' + fmt(genDuringGap) + ' = ' + fmt(gapLoad) + ' kW<br>';
+  stepsHTML += '储能实需放电 = (' + fmt(gapLoad) + ' - ' + fmt(targetGrid) + ') × ' + fmt1((1-gridCoverage)*100) + '% = <b>' + fmt(effectiveDischargePower) + ' kW</b>';
+  stepsHTML += '</div></div>';
+
+  stepsHTML += '<div class="flex items-start gap-3 mb-3 p-3 rounded-xl" style="background:#f5f5f7">';
+  stepsHTML += '<span class="text-lg">④</span><div><b>充电功率</b><br>';
+  stepsHTML += '充电窗口 = <b>' + chargeWindow + ' h</b><br>';
+  stepsHTML += '充电功率 = ' + fmt(needMore) + ' ÷ ' + chargeWindow + ' = <b>' + fmt(chargePowerNeeded) + ' kW</b>';
+  if (chargeConstrained) stepsHTML += ' <span class="text-xs text-[#c62828]">⚠️ 富余不足 ' + fmt(surplusPowerAvailable) + ' < ' + fmt(chargePowerNeeded) + ' kW</span>';
+  stepsHTML += '</div></div>';
+
   stepsHTML += '<div class="flex items-start gap-3 p-3 rounded-xl" style="background:#f5f5f7">';
-  stepsHTML += '<span class="text-lg">③</span><div><b>🔀 吞吐取大</b><br><br>';
-  stepsHTML += '功率 = max(吞 ' + fmt(swallowPower) + ', 吐 ' + fmt(spitPower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
-  stepsHTML += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischarge) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
-  stepsHTML += '原始时长 = ' + fmt(storageCapacityRaw) + ' ÷ ' + fmt(storagePower) + ' = <b>' + fmt1(rawStorageHours) + ' h</b>';
-  if (exceedsHourLimit) {
-    stepsHTML += '<br><span style="color:#c62828">→ ' + fmt1(rawStorageHours) + 'h > ' + maxStorageH + 'h 上限</span>，削至 ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b>（削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh）';
+  stepsHTML += '<span class="text-lg">⑤</span><div><b>合并 & 时长约束</b><br>';
+  stepsHTML += '功率 = max(充电 ' + fmt(chargePowerNeeded) + ', 放电 ' + fmt(effectiveDischargePower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
+  stepsHTML += '容量（合并） = max(自发自用 ' + fmt(capDischarge) + ', 上网限制 ' + fmt(capFromExport) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b><br>';
+  if (capacityIsCapped) {
+    stepsHTML += '容量（受 ' + maxStorageH + 'h 上限） = min(' + fmt(storageCapacityRaw) + ', ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h) = <b>' + fmt(storageCapacity) + ' kWh</b> <span style="color:#c62828">⚠️ 削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh</span><br>';
+    stepsHTML += '→ 受限后可消纳上网量 = ' + fmt(storageCapacity) + ' × ' + fmt1(dischargeEffVal*100) + '% × ' + fmt1(usableSOC*100) + '% = <b>' + fmt(storageCapacity * dischargeEffVal * usableSOC) + ' kWh/天</b><br>';
+    stepsHTML += '→ 储能后上网率 = ' + fmt1(exportRatio*100) + '% × ' + fmt(dailyGen) + ' - ' + fmt(chargedFromSurplus) + ' = <b>' + fmt(postStorageExport) + ' kWh → <b>' + fmt1(postStorageExportRatio*100) + '%</b>（原始 ' + fmt1(exportRatio*100) + '%）<br>';
+    stepsHTML += '→ 储能后自发自用率 = ' + fmt1(selfGenRatio*100) + '% + ' + fmt1(dischargedToLoad/dailyGen*100) + '% = <b>' + fmt1(postStorageSelfGenRatio*100) + '%</b>（目标 ' + targetRatio + '%）<br>';
+    stepsHTML += '→ 仍需弃电（上网仍超 20%） = max(0, ' + fmt(postStorageExport) + ' - ' + fmt(allowExportEnergy) + ') = <b>' + fmt(mustCurtailBeyondExport) + ' kWh/天</b>（' + fmt1(mustCurtailRatio*100) + '%）';
   }
-  stepsHTML += '<br><hr style="border:none;border-top:1px dashed #ddd;margin:6px 0">';
+  if (capFromExport > capDischarge) stepsHTML += '<span class="text-xs text-[#e65100]">⚠️ 上网限制充电容量主导需求</span><br>';
   stepsHTML += '→ <b>最终配置：' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）</b><br>';
-  stepsHTML += '→ 投资 ≈ ¥ ' + fmtMoney(investment) + '<br>';
-  stepsHTML += '→ 容量压降 = min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', 吐' + fmt(spitPower) + '+' + fmt(guaranteedGapGen) + ') = <b>' + fmt(effectiveCapReduction) + ' kW</b>（需量制）';
+  stepsHTML += '→ 储能投资 ≈ ¥ ' + fmtMoney(investment) + '<br>';
+  stepsHTML += '→ 容量压降 = min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', ' + fmt(effectiveDischargePower) + '+' + fmt(guaranteedGapGen) + ') = <b>' + fmt(effectiveCapReduction) + ' kW</b><br>';
+  stepsHTML += '（你想压降 ' + fmt(Math.max(0, maxLoad - targetGrid)) + ' kW，储能放电 ' + fmt(effectiveDischargePower) + ' kW + 电源保证 ' + fmt(guaranteedGapGen) + ' kW 可兜底 ' + fmt(effectiveDischargePower + guaranteedGapGen) + ' kW）';
   stepsHTML += '</div></div>';
   stepsHTML += '</div>';
   document.getElementById('steps_content').innerHTML = stepsHTML;
 
   // Detail table
   var capRedPct = annualNetWith > 0 ? (annualCapBenefit / Math.max(1, annualSelfBenefit + annualCapBenefit) * 100).toFixed(0) : 0;
-  var capSource = capChargeExport > capChargeTotal ? '上网限制充电容量' : '自发自用充电容量';
+  var capSource = capFromExport > capDischarge ? '上网限制充电容量' : '自发自用充电容量';
   document.getElementById('detail_table').innerHTML =
     '<div class="table-wrap" style="overflow-x:auto;font-size:13px">' +
     '<table class="w-full" style="border-collapse:collapse;min-width:360px">' +
-    '<tr><th class="p-2 text-left font-semibold" style="background:#f5f5f7;font-size:12px">项目</th><th class="p-2 text-center font-semibold" style="background:#e8f5e9;font-size:12px">含容量压降（需量制）</th><th class="p-2 text-center font-semibold" style="background:#fff3e0;font-size:12px">不含容量压降（需量制）</th></tr>' +
+    '<tr><th class="p-2 text-left font-semibold" style="background:#f5f5f7;font-size:12px">项目</th><th class="p-2 text-center font-semibold" style="background:#e8f5e9;font-size:12px">含容量压降</th><th class="p-2 text-center font-semibold" style="background:#fff3e0;font-size:12px">不含容量压降</th></tr>' +
     '<tr><td class="p-2" style="font-size:12px">储能配置</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + powerMW + ' MW / ' + capacityMWh + ' MWh（' + storageHours + ' h）' + (capacityIsCapped ? ' ⚠️达上限' : '') + '</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">容量主导来源</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + capSource + '</td></tr>' +
     (capacityIsCapped ? '<tr><td class="p-2" style="font-size:12px">原始需求（未受限）</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + (storageCapacityRaw/1000).toFixed(0) + ' MWh，因 ' + maxStorageH + 'h 上限削至 ' + capacityMWh + ' MWh</td></tr>' : '') +
-    '<tr><td class="p-2" style="font-size:12px">吞-容量(自用/上网限制) / 吐-容量</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(capChargeTotal) + ' / ' + fmt(capDischarge) + ' kWh</td></tr>' +
-    '<tr><td class="p-2" style="font-size:12px">吞-功率 / 吐-功率</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(swallowPower) + ' / ' + fmt(spitPower) + ' kW</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">自发自用充电容量 / 上网限制充电容量</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(capDischarge) + ' / ' + fmt(capFromExport) + ' kWh</td></tr>' +
+    '<tr><td class="p-2" style="font-size:12px">充电功率 / 放电功率</td><td class="p-2 text-center font-mono" style="font-size:12px" colspan="2">' + fmt(chargePowerNeeded) + ' / ' + fmt(effectiveDischargePower) + ' kW</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">新增自发自用电量</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(needMore) + ' kWh/天</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">年自发自用收益</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">¥ ' + fmtMoney(annualSelfBenefit) + '</td></tr>' +
     '<tr><td class="p-2" style="font-size:12px">容量压降</td><td class="p-2 text-center font-mono" style="font-size:12px">' + fmt(effectiveCapReduction) + ' kW</td><td class="p-2 text-center" style="font-size:12px;color:#999">不被认可</td></tr>' +
@@ -976,8 +991,8 @@ function doCalc() {
     '<tr><td class="p-2" style="font-size:12px">年运维成本</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td><td class="p-2 text-center font-mono" style="font-size:12px">- ¥ ' + fmtMoney(annualOM) + '</td></tr>' +
     '<tr><td class="p-2 font-bold" style="font-size:13px">静态回收期</td><td class="p-2 text-center font-mono font-bold" style="font-size:13px;color:#2e7d32">' + (paybackWith === Infinity ? '无法回收' : paybackWith.toFixed(1) + ' 年') + '</td><td class="p-2 text-center font-mono font-bold" style="font-size:13px;color:#e65100">' + (paybackWithout === Infinity ? '无法回收' : paybackWithout.toFixed(1) + ' 年') + '</td></tr>' +
     '</table></div>' +
-    (chargeConstrained ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 充电富余不足：可用 ' + fmt(surplusPowerAvailable) + ' kW < 需求 ' + fmt(swallowPower) + ' kW</div>' : '') +
-    (exportExcessRatio > 0 && capChargeExport > capChargeSelf ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 上网超限 ' + fmt1(exportRatio*100) + '% ＞ 20%，上网限制充电需求超过自发自用需求。扣除 20% 允许上网量后，日均需充电 ' + fmt(dailyExcess) + ' kWh</div>' : '') +
+    (chargeConstrained ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 充电富余不足：可用 ' + fmt(surplusPowerAvailable) + ' kW < 需求 ' + fmt(chargePowerNeeded) + ' kW</div>' : '') +
+    (exportExcessRatio > 0 && capFromExport > capDischarge ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 上网超限 ' + fmt1(exportRatio*100) + '% ＞ 20%，上网限制充电容量主导需求。扣除 20% 允许上网量后，日均需充电 ' + fmt(dailyExcess) + ' kWh</div>' : '') +
     (paybackWith !== Infinity && paybackWith > 8 ? '<div class="mt-3 p-3 rounded-xl text-xs" style="background:#fff3e0;color:#e65100">⚠️ 回收期 > 8 年，经济性一般。</div>' : '');
 
 }

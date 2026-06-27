@@ -464,7 +464,8 @@ function parse8760(rows) {
     dailyLoad: dailyLoadAvg, dailyGen: dailyGenAvg, maxLoad: maxLoadVal, peakGen: maxGenVal,
     measuredGapGen: detectedSource === 'pv' ? 0 : windGapAvg,
     genNoon: detectedSource === 'pv' ? maxGenVal : windNoonAvg,
-    autoGapHours: avgGapLen,  // average daily max gap from 8760
+    autoGapHours: avgGapLen,
+    gapDays: dailyGapHours.length, gapMin: dgMin, gapMax: dgMax,
     selfGenRatio: selfGenRatio, selfLoadRatio: selfLoadRatio, exportRatio: exportRatio,
     directConsumption: directConsumption, totalGen: totalGen, totalLoad: totalLoad, exported: exported,
     hourCount: count, sourceType: detectedSource, genIsNegative: genIsNegative
@@ -488,8 +489,8 @@ function parse8760(rows) {
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">自发自用÷用电</p><p class="text-base font-bold mt-1 ' + (selfLoadRatio>=0.3?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(selfLoadRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≥30%</p></div>' +
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-base font-bold mt-1 ' + (exportRatio<=0.2?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20%</p></div>' +
     '</div>' +
-    '<div class="text-xs text-[#a1a1a6] mt-2">✅ 已自动填入典型日参数并触发计算 · 日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 日均最长缺口 ' + avgGapLen + ' h · 上网量 ' + fmt1(exported/10000) + ' 万kWh<br>下方参数可手动修改后再点「开始倒算」</div>';
-    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGapHours.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + ' (threshold 70%)</div>'
+    '<div class="text-xs text-[#a1a1a6] mt-2">✅ 已自动填入典型日参数并触发计算 · 日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 日均最长缺口 ' + avgGapLen + ' h · 上网量 ' + fmt1(exported/10000) + ' 万kWh<br>下方参数可手动修改后再点「开始倒算」</div>' +
+    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGapHours.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + ' (threshold 70%)</div>';
 
   // Auto-fill and auto-calc
   document.getElementById('skipUploadNote').style.display = 'none';
@@ -517,7 +518,7 @@ function applyImport() {
   document.getElementById('dailyLoad').value = Math.round(importData.dailyLoad);
   document.getElementById('maxLoad').value = Math.round(importData.maxLoad);
   document.getElementById('gapHours').value = importData.autoGapHours || 4;
-  document.getElementById('gapSrcNote').innerHTML = '（8760日均）';
+  document.getElementById('gapSrcNote').innerHTML = '（8760, ' + (importData.gapDays || '?') + '天, min' + (importData.gapMin || 0) + ' max' + (importData.gapMax || 0) + ' avg' + (importData.autoGapHours || '?') + 'h）';
   // Auto-set targetGrid smarter: maxLoad minus some fraction of wind output during gap
   var existingTargetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
   var suggestedGrid;

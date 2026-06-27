@@ -363,9 +363,19 @@ function parse8760(rows) {
     if (genAbs > maxGenVal) maxGenVal = genAbs;
     count++;
 
-    // Gap tracking: load > gen = net draw from grid
-    if (lv > genAbs) { curGapLen++; if (curGapLen > maxGapLen) maxGapLen = curGapLen; }
-    else { curGapLen = 0; }
+      // Day boundary reset: find hour, reset gap counter at midnight
+    var hh = -1;
+    if (dt instanceof Date && !isNaN(dt.getTime())) hh = dt.getHours();
+    else if (typeof dt === 'number') {
+      if (dt < 1) hh = Math.floor(dt * 24);
+      else if (dt > 40000) hh = Math.floor((dt % 1) * 24);
+    }
+    if (hh === 0) { curGapLen = 0; }
+    // Gap tracking per calendar day
+    if (lv > genAbs) {
+      curGapLen++;
+      if (curGapLen > maxGapLen) maxGapLen = curGapLen;
+    } else { curGapLen = 0; }
 
     // Wind typical day extraction if user selected wind
     if (currentSource === 'wind' && dt != null) {

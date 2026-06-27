@@ -92,7 +92,7 @@
       <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🏭</span><span class="text-sm font-bold text-[#1a1a1a]">负荷参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
       <div class="param-card"><div class="input-group"><label>📊 园区最大负荷</label><input type="number" id="maxLoad" class="input-field" value="50000" step="100" min="0"><div class="input-unit">kW</div></div></div>
       <div class="param-card"><div class="input-group"><label>⚡ 日用电量</label><input type="number" id="dailyLoad" class="input-field" value="910000" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⏱️ 缺口持续时长</label><input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24"><div class="input-unit">小时（电源不足、负荷仍高的连续时段）</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⏱️ 缺口持续时长 <span id="gapSrcNote" style="font-size:10px;font-weight:400;color:#a1a1a6"></span></label><input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24"><div class="input-unit">小时（日均缺口小时数，8760导入后自动填入；可手动修改）</div></div></div>
 
       <!-- 光伏参数 -->
       <div id="pvParams">
@@ -346,9 +346,9 @@ function parse8760(rows) {
   var maxLoadVal = 0, maxGenVal = 0;
   var count = 0;
   var windNoonTotal = 0, windNoonN = 0, windGapTotal = 0, windGapN = 0;
-  // Gap tracking: collect each day's longest consecutive gap, then average
-  var curGapLen = 0, dailyMaxGap = 0;
-  var dailyGaps = [];  // each day's longest gap in hours
+  // Gap tracking: for each calendar day, count total hours where load > gen
+  var gapToday = 0, prevDay = -1;
+  var dailyGaps = [];  // each day's total gap hours
 
   for (var k = 0; k < rows.length; k++) {
     var r = rows[k]; if (!r || r.length <= Math.max(colLoad, colGen)) continue;
@@ -364,23 +364,20 @@ function parse8760(rows) {
     if (genAbs > maxGenVal) maxGenVal = genAbs;
     count++;
 
-      // Day boundary detection: parse hour from any time format
-    var hh = -1;
-    if (dt instanceof Date && !isNaN(dt.getTime())) { hh = dt.getHours(); }
-    else if (typeof dt === 'number') {
-      if (dt < 1) hh = Math.floor(dt * 24);
-      else if (dt > 40000) hh = Math.floor((dt % 1) * 24);
-    } else if (typeof dt === 'string' && dt.length >= 13) {
-      // String format: '2025-01-01 00:00:00' or '2025-01-01T00:00:00'
-      var timePart = dt.indexOf('T') >= 0 ? dt.split('T')[1] : dt.split(' ')[1];
-      if (timePart) { hh = parseInt(timePart.split(':')[0]); }
+    // Day boundary: use date prefix (first 10 chars) to detect calendar day change
+    var dayStr = '';
+    if (dt instanceof Date && !isNaN(dt.getTime())) {
+      dayStr = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+    } else if (typeof dt === 'string') {
+      dayStr = dt.substring(0, 10);
+    } else if (typeof dt === 'number' && dt > 40000) {
+      dayStr = String(Math.floor(dt));
     }
-    if (hh === 0) { if (dailyMaxGap > 0) dailyGaps.push(dailyMaxGap); dailyMaxGap = 0; }
-    // Gap tracking
-    if (lv > genAbs) {
-      curGapLen++;
-      if (curGapLen > dailyMaxGap) dailyMaxGap = curGapLen;
-    } else { curGapLen = 0; }
+    if (dayStr !== '' && dayStr !== prevDay) {
+      if (prevDay !== '' && prevDay !== -1) dailyGaps.push(gapToday);
+      gapToday = 0; prevDay = dayStr;
+    }
+    if (lv > genAbs) gapToday++;
 
     // Wind typical day extraction if user selected wind
     if (currentSource === 'wind' && dt != null) {
@@ -402,7 +399,7 @@ function parse8760(rows) {
   if (count < 100) throw new Error('有效数据行数不足（<100），找到 ' + count + ' 行');
 
   // Finalize: push last day, compute average
-  if (dailyMaxGap > 0) dailyGaps.push(dailyMaxGap);
+  if (gapToday > 0) dailyGaps.push(gapToday);
   var avgGapLen = 4;  // fallback
   if (dailyGaps.length > 0) {
     var sum = 0;
@@ -485,6 +482,7 @@ function applyImport() {
   document.getElementById('dailyLoad').value = Math.round(importData.dailyLoad);
   document.getElementById('maxLoad').value = Math.round(importData.maxLoad);
   document.getElementById('gapHours').value = importData.autoGapHours || 4;
+  document.getElementById('gapSrcNote').innerHTML = '（8760日均）';
   // Auto-set targetGrid smarter: maxLoad minus some fraction of wind output during gap
   var existingTargetGrid = parseFloat(document.getElementById('targetGrid').value) || 0;
   var suggestedGrid;

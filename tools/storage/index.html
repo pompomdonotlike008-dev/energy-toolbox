@@ -737,7 +737,7 @@ function doCalc() {
 
       html += '<b>🔀 吞吐取大</b><br>';
       html += '功率 = max(吞 ' + fmt(swallowPower) + ', 吐 ' + fmt(spitPower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
-      html += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischarge) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
+      html += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischargeEffective) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
       html += '原始时长 = ' + fmt(storageCapacityRaw) + ' ÷ ' + fmt(storagePower) + ' = <b>' + fmt1(rawStorageHours) + ' h</b><br>';
       html += '<span style="color:#c62828">→ ' + fmt1(rawStorageHours) + 'h > ' + maxStorageH + 'h 上限，触发阻断</span><br>';
       html += '受 ' + maxStorageH + 'h 上限：' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b>，削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh';
@@ -809,30 +809,6 @@ function doCalc() {
   // === RENDER ===
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
-
-  // === DEBUG TRACE ===
-  var dbg = [];
-  dbg.push('dailyGen=' + fmt(dailyGen) + ' | dailyLoad=' + fmt(dailyLoad) + ' | maxLoad=' + fmt(maxLoad));
-  dbg.push('peakGen=' + fmt(peakGen) + ' | measuredGapGen=' + fmt(measuredGapGen) + ' | maxStorageH=' + maxStorageH);
-  dbg.push('selfGenRatio=' + fmt1(selfGenRatio*100) + '% selfLoadRatio=' + fmt1(selfLoadRatio*100) + '% exportRatio=' + fmt1(exportRatio*100) + '%');
-  dbg.push('directConsump=' + fmt(directConsumption) + ' | needMore=' + fmt(needMore) + ' | exportExcess%=' + fmt1(exportExcessRatio*100) + '% | dailyExcess=' + fmt(dailyExcess));
-  dbg.push('担保出力=' + fmt(effectiveGenGap) + 'kW(' + (measuredGapGen > effectiveGenGap ? '实测' + fmt(measuredGapGen) + '担保率' + fmt1(effectiveGenGap/measuredGapGen*100) + '%' : '全覆盖') + ') | 吞A=' + fmt(capChargeSelf) + ' 吞B=' + fmt(capChargeExport) + ' 吞total=' + fmt(capChargeTotal) + ' | 吐=' + fmt(capDischarge));
-  dbg.push('吞功率=' + fmt(swallowPower) + 'kW 吐功率=' + fmt(spitPower) + 'kW | power=' + fmt(storagePower) + 'kW | hours=' + (storagePower>0?(storageCapacity/storagePower).toFixed(1):'0'));
-  dbg.push('capReduction=min(' + fmt(Math.max(0, maxLoad - targetGrid)) + ', 吐' + fmt(spitPower) + '+担保' + fmt(effectiveGenGap) + ')=' + fmt(effectiveCapReduction) + 'kW（需量制）');
-  dbg.push('postStorage: export ' + fmt1(exportRatio*100) + '%→' + fmt1(postStorageExportRatio*100) + '% | selfGen ' + fmt1(selfGenRatio*100) + '%→' + fmt1(postStorageSelfGenRatio*100) + '% | mustCurtail ' + fmt(mustCurtailBeyondExport) + 'kWh/d (' + fmt1(mustCurtailRatio*100) + '%)');
-  dbg.push('has8760data=' + (imported ? 'YES' : 'NO') + ' | source=' + currentSource + ' | allPassed=' + allPassed);
-  console.log('DEBUG:\n' + dbg.join('\n'));
-
-  // Visual debug panel in results
-  var debugPanel = document.getElementById('debugPanel');
-  if (!debugPanel) {
-    debugPanel = document.createElement('div');
-    debugPanel.id = 'debugPanel';
-    debugPanel.style.cssText = 'margin:8px 0;padding:10px 14px;background:#fff5f5;border:1px solid #ffcdd2;border-radius:10px;font-size:12px;font-family:monospace;line-height:1.6;color:#c62828;max-width:100%;overflow-x:auto';
-    var resultsDiv = document.getElementById('results');
-    resultsDiv.insertBefore(debugPanel, resultsDiv.firstChild);
-  }
-  debugPanel.innerHTML = '<b>🔍 计算过程追踪</b><br>' + dbg.join('<br>');
 
   // Data source note
   document.getElementById('importNote').innerHTML = imported ? ' <span class="badge-go" style="font-size:10px;padding:1px 6px">📂 8760导入</span>' : ' <span class="badge-estimate" style="font-size:10px;padding:1px 6px">📐 典型日估算</span>';
@@ -1010,14 +986,14 @@ function doCalc() {
   stepsHTML += '<br>';
   stepsHTML += '缺口负荷 = ' + fmt(maxLoad) + ' − ' + fmt(effectiveGenGap) + ' = <b>' + fmt(gapLoad) + ' kW</b><br>';
   stepsHTML += '→ 吐-功率 = <b>' + fmt(spitPower) + ' kW</b><br>';
-  stepsHTML += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + maxStorageH + 'h ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capDischargeEffective) + ' kWh</b> (' + (capDischarge/1000).toFixed(0) + ' MWh)';
+  stepsHTML += '→ 吐-容量 = ' + fmt(spitPower) + 'kW × ' + maxStorageH + 'h ÷ ' + fmt1(dischargeEffVal*100) + '% ÷ ' + fmt1(usableSOC*100) + '% = <b>' + fmt(capDischargeEffective) + ' kWh</b> (' + (capDischargeEffective/1000).toFixed(0) + ' MWh)';
   stepsHTML += '</div></div>';
 
   // ③ 合并
   stepsHTML += '<div class="flex items-start gap-3 p-3 rounded-xl" style="background:#f5f5f7">';
   stepsHTML += '<span class="text-lg">③</span><div><b>🔀 吞吐取大</b><br><br>';
   stepsHTML += '功率 = max(吞 ' + fmt(swallowPower) + ', 吐 ' + fmt(spitPower) + ') = <b>' + fmt(storagePower) + ' kW</b> (' + (storagePower/1000).toFixed(1) + ' MW)<br>';
-  stepsHTML += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischarge) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
+  stepsHTML += '容量 = max(吞 ' + fmt(capChargeTotal) + ', 吐 ' + fmt(capDischargeEffective) + ') = <b>' + fmt(storageCapacityRaw) + ' kWh</b> (' + (storageCapacityRaw/1000).toFixed(0) + ' MWh)<br>';
   stepsHTML += '原始时长 = ' + fmt(storageCapacityRaw) + ' ÷ ' + fmt(storagePower) + ' = <b>' + fmt1(rawStorageHours) + ' h</b>';
   if (exceedsHourLimit) {
     stepsHTML += '<br><span style="color:#c62828">→ ' + fmt1(rawStorageHours) + 'h > ' + maxStorageH + 'h 上限</span>，削至 ' + fmt(storagePower) + 'kW × ' + maxStorageH + 'h = <b>' + fmt(storageCapacity) + ' kWh</b>（削去 ' + fmt(storageCapacityRaw - storageCapacity) + ' kWh）<br>';
@@ -1034,7 +1010,7 @@ function doCalc() {
 
   // Detail table
   var capRedPct = annualNetWith > 0 ? (annualCapBenefit / Math.max(1, annualSelfBenefit + annualCapBenefit) * 100).toFixed(0) : 0;
-  var capSource = capChargeExport > capChargeTotal ? '上网限制充电容量' : '自发自用充电容量';
+  var capSource = capChargeExport > capChargeSelf ? '上网限制充电容量' : '自发自用充电容量';
   document.getElementById('detail_table').innerHTML =
     '<div class="table-wrap" style="overflow-x:auto;font-size:13px">' +
     '<table class="w-full" style="border-collapse:collapse;min-width:360px">' +

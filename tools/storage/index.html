@@ -92,7 +92,7 @@
       <div class="md:col-span-2 lg:col-span-3"><div class="flex items-center gap-2 mt-2 mb-3"><span class="text-sm">🏭</span><span class="text-sm font-bold text-[#1a1a1a]">负荷参数</span><div class="flex-1 h-px bg-[#e5e5ea]"></div></div></div>
       <div class="param-card"><div class="input-group"><label>📊 园区最大负荷</label><input type="number" id="maxLoad" class="input-field" value="50000" step="100" min="0"><div class="input-unit">kW</div></div></div>
       <div class="param-card"><div class="input-group"><label>⚡ 日用电量</label><input type="number" id="dailyLoad" class="input-field" value="910000" step="100" min="0"><div class="input-unit">kWh/天</div></div></div>
-      <div class="param-card"><div class="input-group"><label>⏱️ 缺口持续时长 <span id="gapSrcNote" style="font-size:10px;font-weight:400;color:#a1a1a6"></span></label><input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24"><div class="input-unit">小时（日均缺口小时数，8760导入后自动填入；可手动修改）</div></div></div>
+      <div class="param-card"><div class="input-group"><label>⏱️ 缺口持续时长 <span id="gapSrcNote" style="font-size:10px;font-weight:400;color:#a1a1a6"></span></label><input type="number" id="gapHours" class="input-field" value="4" step="0.5" min="0" max="24"><div class="input-unit">小时（取日均，≥峰值70%连续缺额段；可手动修改）</div></div></div>
 
       <!-- 光伏参数 -->
       <div id="pvParams">
@@ -247,12 +247,12 @@ function handleFile(e) {
 }
 
 // Peak gap duration: find the longest consecutive stretch around the daily peak
-// where deficit >= 50% of peak.  This isolates the real gap (e.g. evening peak).
+// where deficit >= 70% of peak.
 function peakGapDuration(deficits) {
   var maxD = 0;
   for (var i = 0; i < deficits.length; i++) { if (deficits[i] > maxD) maxD = deficits[i]; }
   if (maxD <= 0) return 0;
-  var threshold = maxD * 0.5;
+  var threshold = maxD * 0.7;
   var bestLen = 0, curLen = 0;
   for (var j = 0; j < deficits.length; j++) {
     if (deficits[j] >= threshold) { curLen++; if (curLen > bestLen) bestLen = curLen; }
@@ -489,7 +489,7 @@ function parse8760(rows) {
       '<div class="bg-[#f5f5f7] rounded-xl p-3 text-center"><p class="text-xs text-[#86868b]">上网÷发电</p><p class="text-base font-bold mt-1 ' + (exportRatio<=0.2?'text-[#2e7d32]':'text-[#e65100]') + '">' + fmt1(exportRatio*100) + '%</p><p class="text-xs text-[#a1a1a6]">≤20%</p></div>' +
     '</div>' +
     '<div class="text-xs text-[#a1a1a6] mt-2">✅ 已自动填入典型日参数并触发计算 · 日均发电 ' + fmt(dailyGenAvg) + ' kWh · 日均用电 ' + fmt(dailyLoadAvg) + ' kWh · 最大负荷 ' + fmt(maxLoadVal) + ' kW · 日均最长缺口 ' + avgGapLen + ' h · 上网量 ' + fmt1(exported/10000) + ' 万kWh<br>下方参数可手动修改后再点「开始倒算」</div>';
-    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGapHours.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + '</div>'
+    '<div class="text-xs text-[#a1a1a6] mt-1" style="font-family:monospace">[GAP_DEBUG] days=' + dailyGapHours.length + ' min=' + dgMin + ' max=' + dgMax + ' sum=' + dgSum + ' avgHours=' + avgGapLen + ' (threshold 70%)</div>'
 
   // Auto-fill and auto-calc
   document.getElementById('skipUploadNote').style.display = 'none';
